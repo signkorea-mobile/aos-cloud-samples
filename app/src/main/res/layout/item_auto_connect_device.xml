@@ -1,0 +1,292 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    tools:showIn="@layout/fragment_auto_connection_devices">
+
+    <data>
+        <variable name="registerDate" type="java.lang.String" />
+        <variable name="lastLoginDate" type="java.lang.String" />
+        <variable name="ipAddress" type="java.lang.String" />
+        <variable name="os" type="java.lang.String" />
+        <variable name="hwModel" type="java.lang.String" />
+        <variable name="platformVersion" type="java.lang.String" />
+        <variable name="nickName" type="java.lang.String" />
+        <variable name="serviceName" type="java.lang.String" />
+        <variable name="deviceInfo" type="java.lang.String" />
+    </data>
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingTop="7dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="등록"
+            android:textSize="11sp"
+            android:textColor="#9A9A9A"
+            android:layout_marginBottom="3dp"
+            app:layout_constraintStart_toStartOf="@id/registerDateLabel"
+            app:layout_constraintBottom_toTopOf="@id/registerDateLabel"
+            tools:ignore="HardcodedText,SmallSp" />
+
+        <TextView
+            android:id="@+id/registerDateLabel"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="20dp"
+            android:layout_marginEnd="20dp"
+            android:layout_marginBottom="27dp"
+            android:textColor="@color/black"
+            android:textSize="13sp"
+            android:fontFamily="sans-serif-light"
+            android:singleLine="true"
+            android:text="@{registerDate}"
+            app:layout_constraintBottom_toTopOf="@id/ipAddressLabel"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="@id/centerX"
+            tools:text="2021년 12월 30일" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="마지막 로그인"
+            android:textSize="11sp"
+            android:textColor="#9A9A9A"
+            android:layout_marginBottom="3dp"
+            app:layout_constraintStart_toStartOf="@id/lastLoginDateLabel"
+            app:layout_constraintBottom_toTopOf="@id/lastLoginDateLabel"
+            tools:ignore="HardcodedText,SmallSp" />
+
+        <TextView
+            android:id="@+id/lastLoginDateLabel"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="20dp"
+            android:layout_marginEnd="20dp"
+            android:layout_marginBottom="27dp"
+            android:textColor="@color/black"
+            android:textSize="13sp"
+            android:fontFamily="sans-serif-light"
+            android:singleLine="true"
+            android:text="@{lastLoginDate}"
+            app:layout_constraintBottom_toTopOf="@id/ipAddressLabel"
+            app:layout_constraintStart_toStartOf="@id/centerX"
+            app:layout_constraintEnd_toEndOf="parent"
+            tools:text="2021년 12월 30일" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="IP"
+            android:textSize="11sp"
+            android:textColor="#9A9A9A"
+            android:layout_marginBottom="3dp"
+            app:layout_constraintStart_toStartOf="@id/ipAddressLabel"
+            app:layout_constraintBottom_toTopOf="@id/ipAddressLabel"
+            tools:ignore="HardcodedText,SmallSp" />
+
+        <TextView
+            android:id="@+id/ipAddressLabel"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="20dp"
+            android:layout_marginEnd="20dp"
+            android:layout_marginBottom="27dp"
+            android:textColor="@color/black"
+            android:textSize="13sp"
+            android:fontFamily="sans-serif-light"
+            android:singleLine="true"
+            android:text="@{ipAddress}"
+            app:layout_constraintBottom_toTopOf="@id/hwModelLabel"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="@id/centerX"
+            tools:text="255.255.255.255" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="OS"
+            android:textSize="11sp"
+            android:textColor="#9A9A9A"
+            android:layout_marginBottom="3dp"
+            app:layout_constraintStart_toStartOf="@id/osLabel"
+            app:layout_constraintBottom_toTopOf="@id/osLabel"
+            tools:ignore="HardcodedText,SmallSp" />
+
+        <TextView
+            android:id="@+id/osLabel"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="20dp"
+            android:layout_marginEnd="20dp"
+            android:layout_marginBottom="27dp"
+            android:textColor="@color/black"
+            android:textSize="13sp"
+            android:fontFamily="sans-serif-light"
+            android:singleLine="true"
+            android:text="@{os}"
+            app:layout_constraintBottom_toTopOf="@id/hwModelLabel"
+            app:layout_constraintStart_toStartOf="@id/centerX"
+            app:layout_constraintEnd_toEndOf="parent"
+            tools:text="Android 5.0" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="하드웨어 정보"
+            android:textSize="11sp"
+            android:textColor="#9A9A9A"
+            android:layout_marginBottom="3dp"
+            app:layout_constraintStart_toStartOf="@id/hwModelLabel"
+            app:layout_constraintBottom_toTopOf="@id/hwModelLabel"
+            tools:ignore="HardcodedText,SmallSp" />
+
+        <TextView
+            android:id="@+id/hwModelLabel"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="20dp"
+            android:layout_marginEnd="20dp"
+            android:layout_marginBottom="27dp"
+            android:textColor="@color/black"
+            android:textSize="13sp"
+            android:fontFamily="sans-serif-light"
+            android:singleLine="true"
+            android:text="@{hwModel}"
+            app:layout_constraintBottom_toTopOf="@id/nickNameLabel"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="@id/centerX"
+            tools:text="255.255.255.255" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="플랫폼 버전"
+            android:textSize="11sp"
+            android:textColor="#9A9A9A"
+            android:layout_marginBottom="3dp"
+            app:layout_constraintStart_toStartOf="@id/platformVersionLabel"
+            app:layout_constraintBottom_toTopOf="@id/platformVersionLabel"
+            tools:ignore="HardcodedText,SmallSp" />
+
+        <TextView
+            android:id="@+id/platformVersionLabel"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="20dp"
+            android:layout_marginEnd="20dp"
+            android:layout_marginBottom="27dp"
+            android:textColor="@color/black"
+            android:textSize="13sp"
+            android:fontFamily="sans-serif-light"
+            android:singleLine="true"
+            android:text="@{platformVersion}"
+            app:layout_constraintBottom_toTopOf="@id/nickNameLabel"
+            app:layout_constraintStart_toStartOf="@id/centerX"
+            app:layout_constraintEnd_toEndOf="parent"
+            tools:text="Android 5.0" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="기기 별칭"
+            android:textSize="11sp"
+            android:textColor="#9A9A9A"
+            android:layout_marginBottom="3dp"
+            app:layout_constraintStart_toStartOf="@id/nickNameLabel"
+            app:layout_constraintBottom_toTopOf="@id/nickNameLabel"
+            tools:ignore="HardcodedText,SmallSp" />
+
+        <TextView
+            android:id="@+id/nickNameLabel"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="20dp"
+            android:layout_marginEnd="20dp"
+            android:layout_marginBottom="27dp"
+            android:textColor="@color/black"
+            android:textSize="13sp"
+            android:fontFamily="sans-serif-light"
+            android:singleLine="true"
+            android:text="@{nickName}"
+            app:layout_constraintBottom_toTopOf="@id/deviceInfoLabel"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="@id/centerX"
+            tools:text="255.255.255.255" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="서비스명"
+            android:textSize="11sp"
+            android:textColor="#9A9A9A"
+            android:layout_marginBottom="3dp"
+            app:layout_constraintStart_toStartOf="@id/serviceNameLabel"
+            app:layout_constraintBottom_toTopOf="@id/serviceNameLabel"
+            tools:ignore="HardcodedText,SmallSp" />
+
+        <TextView
+            android:id="@+id/serviceNameLabel"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="20dp"
+            android:layout_marginEnd="20dp"
+            android:layout_marginBottom="27dp"
+            android:textColor="@color/black"
+            android:textSize="13sp"
+            android:fontFamily="sans-serif-light"
+            android:singleLine="true"
+            android:text="@{serviceName}"
+            app:layout_constraintBottom_toTopOf="@id/deviceInfoLabel"
+            app:layout_constraintStart_toStartOf="@id/centerX"
+            app:layout_constraintEnd_toEndOf="parent"
+            tools:text="Android 5.0" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="단말 정보"
+            android:textSize="11sp"
+            android:textColor="#9A9A9A"
+            android:layout_marginBottom="3dp"
+            app:layout_constraintStart_toStartOf="@id/deviceInfoLabel"
+            app:layout_constraintBottom_toTopOf="@id/deviceInfoLabel"
+            tools:ignore="HardcodedText,SmallSp" />
+
+        <TextView
+            android:id="@+id/deviceInfoLabel"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="20dp"
+            android:layout_marginEnd="20dp"
+            android:layout_marginBottom="7dp"
+            android:textColor="@color/black"
+            android:textSize="13sp"
+            android:fontFamily="sans-serif-light"
+            android:text="@{deviceInfo}"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent"
+            tools:text="blah blah blah blah blah blah"/>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:layout_marginStart="20dp"
+            android:layout_marginEnd="20dp"
+            android:background="#d0d0d0"
+            app:layout_constraintBottom_toBottomOf="parent"/>
+
+        <androidx.constraintlayout.widget.Guideline
+            android:id="@+id/centerX"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            app:layout_constraintGuide_percent="0.5"/>
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+</layout>

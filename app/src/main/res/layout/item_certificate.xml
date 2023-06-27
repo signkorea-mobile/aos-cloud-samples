@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    tools:showIn="@layout/fragment_certificate_list">
+
+    <data>
+        <variable name="subject" type="java.lang.String" />
+        <variable name="notAfter" type="java.lang.String" />
+        <variable name="serial" type="java.lang.String" />
+        <variable name="type" type="java.lang.String" />
+        <variable name="locked" type="boolean" />
+    </data>
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingTop="7dp"
+        android:paddingStart="20dp"
+        android:paddingEnd="20dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Subject"
+            android:textSize="11sp"
+            android:textColor="#9A9A9A"
+            android:layout_marginBottom="3dp"
+            app:layout_constraintStart_toStartOf="@id/subjectLabel"
+            app:layout_constraintBottom_toTopOf="@id/subjectLabel"
+            tools:ignore="HardcodedText,SmallSp" />
+
+        <TextView
+            android:id="@+id/subjectLabel"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textColor="@{locked ? 0xffff0000 : 0xff000000}"
+            android:textSize="13sp"
+            android:fontFamily="sans-serif-light"
+            android:singleLine="true"
+            android:layout_marginBottom="27dp"
+            android:text="@{subject}"
+            app:layout_constraintBottom_toTopOf="@id/notAfterLabel"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            tools:text="cn=koscom7832,ou=테스트지점,ou=테스트회사,ou=테스트업종,o=SignKorea,c=KR" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="만료일"
+            android:textSize="11sp"
+            android:textColor="#9A9A9A"
+            android:layout_marginBottom="3dp"
+            app:layout_constraintStart_toStartOf="@id/notAfterLabel"
+            app:layout_constraintBottom_toTopOf="@id/notAfterLabel"
+            tools:ignore="HardcodedText,SmallSp" />
+
+        <TextView
+            android:id="@+id/notAfterLabel"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="7dp"
+            android:textColor="@{locked ? 0xffff0000 : 0xff000000}"
+            android:textSize="13sp"
+            android:fontFamily="sans-serif-light"
+            android:text="@{notAfter}"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            tools:text="2021년 12월 30일 목요일"/>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Serial"
+            android:textSize="11sp"
+            android:textColor="#9A9A9A"
+            android:layout_marginBottom="3dp"
+            app:layout_constraintStart_toStartOf="@id/serialLabel"
+            app:layout_constraintBottom_toTopOf="@id/serialLabel"
+            tools:ignore="HardcodedText,SmallSp" />
+
+        <TextView
+            android:id="@+id/serialLabel"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="7dp"
+            android:layout_marginStart="20dp"
+            android:textColor="@{locked ? 0xffff0000 : 0xff000000}"
+            android:textSize="13sp"
+            android:fontFamily="sans-serif-light"
+            android:text="@{serial}"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toStartOf="@id/centerX"
+            tools:text="ab1234"/>
+
+        <TextView
+            android:id="@+id/type"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="7dp"
+            android:textColor="@{locked ? 0xffff0000 : 0xff000000}"
+            android:textSize="13sp"
+            android:fontFamily="sans-serif-light"
+            android:text="@{type}"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            tools:text="L"/>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="#d0d0d0"
+            app:layout_constraintBottom_toBottomOf="parent"/>
+
+        <androidx.constraintlayout.widget.Guideline
+            android:id="@+id/centerX"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            app:layout_constraintGuide_percent="0.5"/>
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+</layout>

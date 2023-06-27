@@ -1,0 +1,213 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <RelativeLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+
+        <ScrollView
+            android:layout_width="match_parent"
+            android:layout_height="match_parent">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_margin="10dp"
+                android:orientation="vertical">
+
+                <Switch
+                    android:id="@+id/cacheSwitch"
+                    android:layout_width="match_parent"
+                    android:layout_height="50dp"
+                    android:backgroundTint="#E65619"
+                    android:text="noCache"/>
+
+                <Button
+                    android:id="@+id/cmsSign"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:backgroundTint="#E65619"
+                    android:insetTop="0dp"
+                    android:insetBottom="0dp"
+                    android:text="cmsSign"
+                    android:textAllCaps="false"
+                    android:visibility="invisible"
+                    tools:ignore="HardcodedText" />
+
+                <Button
+                    android:id="@+id/briefSign"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:backgroundTint="#E65619"
+                    android:insetTop="0dp"
+                    android:insetBottom="0dp"
+                    android:text="briefSign"
+                    android:textAllCaps="false"
+                    android:visibility="invisible"
+                    tools:ignore="HardcodedText" />
+
+                <Button
+                    android:id="@+id/koscomCmsSign"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:backgroundTint="#E65619"
+                    android:insetTop="0dp"
+                    android:insetBottom="0dp"
+                    android:text="koscomCmsSign"
+                    android:textAllCaps="false"
+                    android:visibility="invisible"
+                    tools:ignore="HardcodedText" />
+
+                <Button
+                    android:id="@+id/koscomBriefSign"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:backgroundTint="#E65619"
+                    android:insetTop="0dp"
+                    android:insetBottom="0dp"
+                    android:text="koscomBriefSign"
+                    android:textAllCaps="false"
+                    android:visibility="invisible"
+                    tools:ignore="HardcodedText" />
+
+                <Button
+                    android:id="@+id/cmsSignHash"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:backgroundTint="#E65619"
+                    android:insetTop="0dp"
+                    android:insetBottom="0dp"
+                    android:text="cmsSignHash"
+                    android:textAllCaps="false"
+                    android:visibility="invisible"
+                    tools:ignore="HardcodedText" />
+
+                <Button
+                    android:id="@+id/briefSignHash"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:backgroundTint="#E65619"
+                    android:insetTop="0dp"
+                    android:insetBottom="0dp"
+                    android:text="briefSignHash"
+                    android:textAllCaps="false"
+                    android:visibility="invisible"
+                    tools:ignore="HardcodedText" />
+
+                <Button
+                    android:id="@+id/koscomCmsSignHash"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:backgroundTint="#E65619"
+                    android:insetTop="0dp"
+                    android:insetBottom="0dp"
+                    android:text="koscomCmsSignHash"
+                    android:textAllCaps="false"
+                    android:visibility="invisible"
+                    tools:ignore="HardcodedText" />
+
+                <Button
+                    android:id="@+id/cmsSignHashWithSigningTime"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:backgroundTint="#E65619"
+                    android:insetTop="0dp"
+                    android:insetBottom="0dp"
+                    android:text="cmsSignHashWithSigningTime"
+                    android:textAllCaps="false"
+                    android:visibility="invisible"
+                    tools:ignore="HardcodedText" />
+
+                <Button
+                    android:id="@+id/mydataSign"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:backgroundTint="#E65619"
+                    android:insetTop="0dp"
+                    android:insetBottom="0dp"
+                    android:text="mydataSign"
+                    android:textAllCaps="false"
+                    android:visibility="invisible"
+                    tools:ignore="HardcodedText" />
+
+                <Button
+                    android:id="@+id/getRandom"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:backgroundTint="#E65619"
+                    android:insetTop="0dp"
+                    android:insetBottom="0dp"
+                    android:text="getRandom"
+                    android:textAllCaps="false"
+                    android:visibility="invisible"
+                    tools:ignore="HardcodedText" />
+
+                <Button
+                    android:id="@+id/selfUserVerify"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:backgroundTint="#E65619"
+                    android:insetTop="0dp"
+                    android:insetBottom="0dp"
+                    android:text="selfUserVerify"
+                    android:textAllCaps="false"
+                    android:visibility="invisible"
+                    tools:ignore="HardcodedText" />
+
+                <Button
+                    android:id="@+id/addBio"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:backgroundTint="#E65619"
+                    android:insetTop="0dp"
+                    android:insetBottom="0dp"
+                    android:text="addBio"
+                    android:textAllCaps="false"
+                    android:visibility="invisible"
+                    tools:ignore="HardcodedText" />
+
+                <Button
+                    android:id="@+id/deleteBio"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:backgroundTint="#E65619"
+                    android:insetTop="0dp"
+                    android:insetBottom="0dp"
+                    android:text="deleteBio"
+                    android:textAllCaps="false"
+                    android:visibility="invisible"
+                    tools:ignore="HardcodedText" />
+
+                <Button
+                    android:id="@+id/autoBio"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:backgroundTint="#E65619"
+                    android:insetTop="0dp"
+                    android:insetBottom="0dp"
+                    android:text="autoBio"
+                    android:textAllCaps="false"
+                    android:visibility="invisible"
+                    tools:ignore="HardcodedText" />
+
+            </LinearLayout>
+
+        </ScrollView>
+    </RelativeLayout>
+
+</layout>

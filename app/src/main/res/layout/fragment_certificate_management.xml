@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:paddingStart="35dp"
+        android:paddingEnd="35dp"
+        tools:context=".fragments.CertificateManagementFragment">
+
+        <androidx.appcompat.widget.LinearLayoutCompat
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent">
+
+            <Switch
+                android:id="@+id/billSwitch"
+                android:layout_width="match_parent"
+                android:layout_height="50dp"
+                android:backgroundTint="#E65619"
+                android:text="WithOutBill"/>
+            <!--                android:textOff="WithOutBill"-->
+            <!--                android:textOn="WithBill"/>-->
+
+            <Button
+                android:id="@+id/issueCertificateButton"
+                android:layout_width="match_parent"
+                android:layout_height="50dp"
+                android:text="인증서 발급"
+                android:backgroundTint="#E65619"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                tools:ignore="HardcodedText" />
+
+            <Button
+                android:id="@+id/renewalCertificateButton"
+                android:layout_width="match_parent"
+                android:layout_height="50dp"
+                android:layout_marginTop="16dp"
+                android:text="인증서 갱신"
+                android:backgroundTint="#E65619"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                tools:ignore="HardcodedText" />
+
+            <!--            <Button-->
+            <!--                android:id="@+id/discardCertificateButton"-->
+            <!--                android:layout_width="match_parent"-->
+            <!--                android:layout_height="50dp"-->
+            <!--                android:layout_marginTop="16dp"-->
+            <!--                android:text="인증서 폐기"-->
+            <!--                android:backgroundTint="#E65619"-->
+            <!--                android:insetTop="0dp"-->
+            <!--                android:insetBottom="0dp"-->
+            <!--                tools:ignore="HardcodedText" />-->
+
+            <Button
+                android:id="@+id/registerCertificateButton"
+                android:layout_width="match_parent"
+                android:layout_height="50dp"
+                android:layout_marginTop="16dp"
+                android:text="인증서 보관"
+                android:backgroundTint="#E65619"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                tools:ignore="HardcodedText" />
+
+            <Button
+                android:id="@+id/exportCertificateButton"
+                android:layout_width="match_parent"
+                android:layout_height="50dp"
+                android:layout_marginTop="16dp"
+                android:text="인증서 내려받기"
+                android:backgroundTint="#E65619"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                tools:ignore="HardcodedText" />
+
+            <Button
+                android:id="@+id/changeCertificatePinButton"
+                android:layout_width="match_parent"
+                android:layout_height="50dp"
+                android:layout_marginTop="16dp"
+                android:text="인증서 PIN 변경"
+                android:backgroundTint="#E65619"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                tools:ignore="HardcodedText" />
+
+            <Button
+                android:id="@+id/unlockCertificateButton"
+                android:layout_width="match_parent"
+                android:layout_height="50dp"
+                android:layout_marginTop="16dp"
+                android:text="인증서 잠금 해제"
+                android:backgroundTint="#E65619"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                tools:ignore="HardcodedText" />
+
+            <Button
+                android:id="@+id/deleteCertificateButton"
+                android:layout_width="match_parent"
+                android:layout_height="50dp"
+                android:layout_marginTop="16dp"
+                android:text="인증서 삭제"
+                android:backgroundTint="#E65619"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                tools:ignore="HardcodedText" />
+
+            <Button
+                android:id="@+id/revokeCertificateButton"
+                android:layout_width="match_parent"
+                android:layout_height="50dp"
+                android:layout_marginTop="16dp"
+                android:text="인증서 폐지"
+                android:backgroundTint="#E65619"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                tools:ignore="HardcodedText" />
+
+
+        </androidx.appcompat.widget.LinearLayoutCompat>
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+</layout>

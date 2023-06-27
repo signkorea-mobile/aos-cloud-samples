@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:paddingStart="35dp"
+        android:paddingEnd="35dp"
+        tools:context=".fragments.HomeFragment">
+
+        <androidx.appcompat.widget.LinearLayoutCompat
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent">
+
+            <Button
+                android:id="@+id/loginButton"
+                android:layout_width="match_parent"
+                android:layout_height="50dp"
+                android:layout_marginTop="16dp"
+                android:text="로그인"
+                android:backgroundTint="#E65619"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                tools:ignore="HardcodedText"
+                />
+
+            <Button
+                android:id="@+id/briefButton"
+                android:layout_width="match_parent"
+                android:layout_height="50dp"
+                android:layout_marginTop="16dp"
+                android:text="주문"
+                android:backgroundTint="#E65619"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                tools:ignore="HardcodedText"
+                />
+
+            <Button
+                android:id="@+id/regiButton"
+                android:layout_width="match_parent"
+                android:layout_height="50dp"
+                android:layout_marginTop="16dp"
+                android:text="타인증서 등록"
+                android:backgroundTint="#E65619"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                tools:ignore="HardcodedText"
+                />
+
+            <Button
+                android:id="@+id/manageAccountButton"
+                android:layout_width="match_parent"
+                android:layout_height="50dp"
+                android:layout_marginTop="16dp"
+                android:text="계정 관리"
+                android:backgroundTint="#E65619"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                tools:ignore="HardcodedText" />
+
+            <Button
+                android:id="@+id/manageCertificateButton"
+                android:layout_width="match_parent"
+                android:layout_height="50dp"
+                android:layout_marginTop="16dp"
+                android:text="인증서 관리(클라우드)"
+                android:backgroundTint="#E65619"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                tools:ignore="HardcodedText" />
+
+
+        </androidx.appcompat.widget.LinearLayoutCompat>
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+</layout>
