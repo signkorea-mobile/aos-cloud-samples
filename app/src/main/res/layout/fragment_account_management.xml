@@ -8,7 +8,7 @@
         android:layout_height="match_parent"
         android:paddingStart="35dp"
         android:paddingEnd="35dp"
-        tools:context=".fragments.AccountManagementFragment">
+        tools:context=".views.fragments.AccountManagementFragment">
 
         <androidx.appcompat.widget.LinearLayoutCompat
             android:layout_width="match_parent"

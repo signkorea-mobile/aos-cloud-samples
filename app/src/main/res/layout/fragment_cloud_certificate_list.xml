@@ -6,10 +6,10 @@
     <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        tools:context=".fragments.CloudCertificateListFragment">
+        tools:context=".fragments.cloudCertificateListFragment">
 
         <TextView
-            android:id="@+id/nocertText"
+            android:id="@+id/noCertText"
             android:layout_width="match_parent"
             android:layout_height="100dp"
             android:gravity="center"
@@ -19,10 +19,11 @@
             android:textAlignment="center"
             android:textColor="#E65619"
             android:visibility="gone"
+            app:layout_constraintTop_toTopOf="parent"
             tools:ignore="HardcodedText" />
 
         <Button
-            android:id="@+id/registcert"
+            android:id="@+id/registCert"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:backgroundTint="#E65619"
@@ -31,7 +32,7 @@
             android:text="클라우드로 인증서 저장"
             android:textAllCaps="false"
             android:visibility="gone"
-            app:layout_constraintTop_toBottomOf="@+id/nocertText"
+            app:layout_constraintTop_toBottomOf="@+id/noCertText"
             tools:ignore="HardcodedText"
             tools:layout_editor_absoluteX="138dp" />
 

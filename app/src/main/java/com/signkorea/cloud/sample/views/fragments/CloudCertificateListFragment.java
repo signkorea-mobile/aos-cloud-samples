@@ -1,41 +1,35 @@
-package com.signkorea.cloud.sample.fragments;
+package com.signkorea.cloud.sample.views.fragments;
 
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Intent;
 import android.os.Bundle;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.view.ViewGroup;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.databinding.Observable;
 import androidx.databinding.ObservableField;
-import androidx.fragment.app.Fragment;
 import androidx.navigation.NavDirections;
 import androidx.navigation.Navigation;
 import androidx.recyclerview.widget.RecyclerView;
 
-import android.util.Log;
-import android.view.LayoutInflater;
-import android.view.View;
-import android.view.ViewGroup;
-
-import com.lumensoft.ks.KSException;
 import com.signkorea.certmanager.BillActivity;
 import com.signkorea.certmanager.BillParam;
-import com.signkorea.cloud.Bio;
 import com.signkorea.cloud.KSCertificateExt;
-import com.yettiesoft.cloud.Client;
-import com.yettiesoft.cloud.IncorrectPasscodeException;
-import com.signkorea.cloud.sample.MainActivity;
-import com.signkorea.cloud.sample.R;
-import com.signkorea.cloud.sample.ViewModelFragment;
+import com.signkorea.cloud.sample.views.base.ViewModelFragment;
 import com.signkorea.cloud.sample.databinding.AlertPasswordBinding;
 import com.signkorea.cloud.sample.databinding.FragmentCloudCertificateListBinding;
 import com.signkorea.cloud.sample.databinding.ItemCertificateBinding;
 import com.signkorea.cloud.sample.enums.CertificateOperation;
+import com.signkorea.cloud.sample.enums.SignMenuType;
 import com.signkorea.cloud.sample.utils.OnceRunnable;
 import com.signkorea.cloud.sample.viewModels.CloudCertificateListFragmentViewModel;
+import com.yettiesoft.cloud.Client;
 import com.yettiesoft.cloud.models.ExportedCertificate;
 
 import java.time.LocalDate;
@@ -53,9 +47,8 @@ public class CloudCertificateListFragment extends ViewModelFragment<FragmentClou
 
     private String opp = null;
     private CertificateOperation operation = CertificateOperation.get;
-    private boolean withBilling = false;
 
-    private int signtype = 0;
+    private SignMenuType menuType;
 
     private final Adapter adapter = new Adapter();
 
@@ -73,51 +66,32 @@ public class CloudCertificateListFragment extends ViewModelFragment<FragmentClou
             return;
         }
 
-        CloudCertificateListFragmentViewModel.DataSource source;
-
-        if (operation == CertificateOperation.register) {
-            source = CloudCertificateListFragmentViewModel.DataSource.local;
-        } else if (operation == CertificateOperation.cache) {
-            source = CloudCertificateListFragmentViewModel.DataSource.cache;
-        } else if (operation == CertificateOperation.all) {
-            source = CloudCertificateListFragmentViewModel.DataSource.all;
-        } else {
-            source = CloudCertificateListFragmentViewModel.DataSource.remote;
-        }
-
         Consumer<Exception> onError = exception -> alertException(exception, operation.getLabel(), true);
 
         @SuppressLint("NotifyDataSetChanged")
         Runnable completion = () -> {
+            dismissLoading();
             adapter.notifyDataSetChanged();
 
             if (adapter.getItemCount() == 0) {
-                getBinding().nocertText.setVisibility(View.VISIBLE);
-                getBinding().registcert.setVisibility(View.VISIBLE);
+                getBinding().noCertText.setVisibility(View.VISIBLE);
+                getBinding().registCert.setVisibility(View.VISIBLE);
             } else
             {
-                getBinding().nocertText.setVisibility(View.GONE);
-                getBinding().registcert.setVisibility(View.GONE);
+                getBinding().noCertText.setVisibility(View.GONE);
+                getBinding().registCert.setVisibility(View.GONE);
             }
         };
 
         Predicate<KSCertificateExt> certificateFilter;
-        switch (operation) {
-            case register:
-            case delete: {
-                certificateFilter = certInfo -> true;
-            } break;
+        if(operation == CertificateOperation.unlock)
+            certificateFilter = KSCertificateExt::isLock;
+        else
+            certificateFilter = certInfo -> true;
 
-            case unlock: {
-                certificateFilter = KSCertificateExt::isLock;
-            } break;
-
-            default: {
-                certificateFilter = certInfo -> true;
-            } break;
-        }
-
-        getViewModel().setDataSource(source).loadData(requireContext(), completion, onError, certificateFilter);
+        showLoading();
+        getViewModel().setDataSource(CloudCertificateListFragmentViewModel.DataSource.remote)
+                .loadData(requireContext(), completion, onError, certificateFilter);
     });
 
     @Override
@@ -125,38 +99,18 @@ public class CloudCertificateListFragment extends ViewModelFragment<FragmentClou
         super.onViewCreated(view, savedInstanceState);
 
         operation = CloudCertificateListFragmentArgs.fromBundle(getArguments()).getOperation();
-
-        withBilling = CloudCertificateListFragmentArgs.fromBundle(getArguments()).getBill();
-
-        signtype = CloudCertificateListFragmentArgs.fromBundle(getArguments()).getSigntype();
+        menuType = CloudCertificateListFragmentArgs.fromBundle(getArguments()).getSignMenuType();
 
         getBinding().recyclerView.setAdapter(adapter);
 
         NavDirections direction;
 
-        // 등록
+        // 등록 (클라우드 내 인증서가 없는 경우)
         direction = CloudCertificateListFragmentDirections
-                .actionCloudCertificateListFragmentToCertificateListFragment()
+                .actionCloudCertificateListFragmentToLocalCertificateListFragment()
                 .setOperation(CertificateOperation.register);
-        getBinding().registcert.setOnClickListener(
+        getBinding().registCert.setOnClickListener(
                 Navigation.createNavigateOnClickListener(direction));
-    }
-
-    @Override
-    public void onAuthenticationError(int i, CharSequence charSequence) {
-        String message = null;
-        if (i == KSException.FAILED_CLOUD_BIO_INVALID_PIN) {
-            message = charSequence.toString();
-        } else {
-            message = i + " : " + charSequence;
-        }
-
-        new AlertDialog.Builder(requireContext())
-                .setTitle("생체 인증 실패")
-                .setMessage(message)
-                .setPositiveButton(android.R.string.ok, (dialog, which) -> {
-                })
-                .show();
     }
 
     @Override
@@ -180,12 +134,12 @@ public class CloudCertificateListFragment extends ViewModelFragment<FragmentClou
                             .show());
                 };
 
-                getViewModel().updateCertificate(updatePosition, withBilling, updatePin, completion);
+                getViewModel().updateCertificate(updatePosition, updatePin, completion);
             }
             // 수행을 제대로 하지 못한 경우
             else if(resultCode == Activity.RESULT_CANCELED)
             {
-                String reason = "빌링취소 : ";
+                String reason = "갱신 취소 : ";
                 if(data != null)
                     reason += data.getStringExtra(BillActivity.REASON);
 
@@ -201,43 +155,33 @@ public class CloudCertificateListFragment extends ViewModelFragment<FragmentClou
 
     private void onItemClick(int position) {
         switch (operation) {
-            case register: {
-                registerCertificate(position);
-            } break;
-
             case get:
-            case cache:
-            case all: {
                 getCertificateIndex(position);
-            } break;
+                break;
 
-            case export: {
+            case export:
                 exportCertificate(position);
-            } break;
+                break;
 
-            case changePin: {
+            case changePin:
                 changeCertificatePin(position);
-            } break;
+                break;
 
-            case delete: {
+            case delete:
                 deleteCertificate(position);
-            } break;
+                break;
 
-            case update: {
+            case updateCloud:
                 updateCertificate(position);
-            } break;
+                break;
 
-            case revoke: {
-                revokeCertificate(position);
-            } break;
-
-            case unlock: {
+            case unlock:
                 unlockCertificate(position);
-            } break;
+                break;
 
-            default: {
-                assert false;
-            } break;
+            default:
+                assert false : "정의되지 않은 동작: " + operation.name();
+                break;
         }
     }
 
@@ -289,60 +233,17 @@ public class CloudCertificateListFragment extends ViewModelFragment<FragmentClou
         pwd2.set(initialPassword);
     }
 
-    public void registerCertificate(int position) {
-        Consumer<KSCertificateExt> completion = cert -> new AlertDialog.Builder(requireContext())
-                .setTitle(operation.getLabel() + " 성공")
-                .setMessage(cert.getSubject())
-                .setPositiveButton(android.R.string.ok, (dialog, which) -> {})
-                .show();
-
-        Consumer<Exception> onError = exception -> {
-            final String errorMessage;
-
-            if (exception instanceof IncorrectPasscodeException) {
-                new AlertDialog.Builder(requireContext())
-                        .setTitle(operation.getLabel())
-                        .setMessage("인증서 비밀번호가 일치하지 않습니다.")
-                        .setPositiveButton(android.R.string.ok, (dialog, which) -> {})
-                        .show();
-            } else {
-                alertException(exception, operation.getLabel());
-            }
-        };
-
-        BiConsumer<String, String> onPasswordAcquired = (password, pin) -> {
-            val cert = (KSCertificateExt)getViewModel().getCertificates().get(position);
-
-            getViewModel().registerCertificate(
-                    cert.getCertificate(),
-                    cert.getKey(),
-                    cert.getKmCertificate(),
-                    cert.getKmKey(),
-                    password,
-                    pin,
-                    () -> completion.accept(cert),
-                    onError);
-        };
-
-        acquirePassword(false, false, "", password ->
-                acquirePassword(true, true, "", pin ->
-                        onPasswordAcquired.accept(password, pin)));
-    }
-
     @Override
     protected void alertException(@NonNull Exception exception) {
         super.alertException(exception, operation.getLabel());
     }
 
     private void getCertificateIndex(int position) {
-
-        HomeFragment.getInstance().setindex(position);
-
         NavDirections directions = CloudCertificateListFragmentDirections.actionCloudCertificateListFragmentToLoginFragment()
                 .setCertificateIndex(position)
                 .setOperation(operation)
-                .setSigntype(signtype);
-        Navigation.findNavController(getView()).navigate(directions);
+                .setSignMenuType(menuType);
+        getNavController().navigate(directions);
     }
 
     private void exportCertificate(int position) {
@@ -382,7 +283,10 @@ public class CloudCertificateListFragment extends ViewModelFragment<FragmentClou
     }
 
     private void deleteCertificate(int position) {
-        Runnable completion = () -> adapter.notifyItemRemoved(position);
+        Runnable completion = () -> {
+            Toast.makeText(requireContext(), "인증서를 삭제하였습니다.", Toast.LENGTH_SHORT).show();
+            adapter.notifyItemRemoved(position);
+        };
 
         Consumer<Exception> onError = exception -> new AlertDialog.Builder(requireContext())
                 .setTitle(operation.getLabel() + " 실패")
@@ -406,22 +310,13 @@ public class CloudCertificateListFragment extends ViewModelFragment<FragmentClou
             if (((String)ret.get("CODE")).equalsIgnoreCase("-4100") &&
                     ((String)ret.get("MESSAGE")).startsWith("SKM_CA_0002")) {
 
-                // cloud 용 opp code 값 setting
+                // cloud 용 opp code 값 setting   TODO 어디 들어가고 어디 빠질지
                 if(((String)ret.get("MESSAGE")).contains("SK_MC")) {
                     opp = "SK_MC";
                 }
 
-                requireActivity().runOnUiThread(() -> new AlertDialog.Builder(requireActivity())
-                        .setMessage("CODE : " + "-4100" + "\n" + "MSG : 공동인증서(구 공인인증서) 비용을 납부하셔야 합니다. 진행하시겠습니까?")
-                        .setPositiveButton(android.R.string.ok, (dialog, which) -> {
-                            KSCertificateExt cert = getViewModel().getCertificates().get(position);
-                            showBillingActivity(cert.getSerialInt());
-                        })
-                        .setNegativeButton(android.R.string.cancel, (dialog, which) -> {
-                            dialog.cancel();// Action for 'NO' Button
-                            // 인증서 발급 취소됨. 어디로 갈건지 고객사에서 설정하세요.
-                        })
-                        .show());
+                KSCertificateExt cert = getViewModel().getCertificates().get(position);
+                showBillingActivity(cert.getSerialInt());
             } else {
                 code = (String) ret.get("CODE");
 
@@ -440,10 +335,8 @@ public class CloudCertificateListFragment extends ViewModelFragment<FragmentClou
                 requireActivity().runOnUiThread(() -> new AlertDialog.Builder(requireActivity())
                         .setTitle(code)
                         .setMessage(message)
-                        .setPositiveButton(android.R.string.ok, (dialog, which) -> {
-                        })
-                        .setNegativeButton(android.R.string.cancel, (dialog, which) -> {
-                        })
+                        .setPositiveButton(android.R.string.ok, null)
+                        .setNegativeButton(android.R.string.cancel, null)
                         .show());
             }
         };
@@ -451,24 +344,11 @@ public class CloudCertificateListFragment extends ViewModelFragment<FragmentClou
         Consumer<String> onPasswordAcquired = (pin) -> {
             updatePosition = position;
             updatePin = pin;
-            getViewModel().updateCertificate(position, withBilling, pin, completion);
+            getViewModel().updateCertificate(position, pin, completion);
         };
 
         acquirePassword(true, false, "", pin ->
                 onPasswordAcquired.accept(pin));
-    }
-
-    private void revokeCertificate(int position) {
-        Consumer<Hashtable<String, Object>> completion = (ret) -> {
-            new AlertDialog.Builder(requireActivity())
-                    .setTitle((String)ret.get("CODE"))
-                    .setMessage((String)ret.get("MESSAGE"))
-                    .setPositiveButton(android.R.string.ok, (dialog, which) -> {})
-                    .setNegativeButton(android.R.string.cancel, (dialog, which) -> {})
-                    .show();
-        };
-
-        getViewModel().revokeCertificate(position, completion);
     }
 
     private void unlockCertificate(int position) {
@@ -482,17 +362,13 @@ public class CloudCertificateListFragment extends ViewModelFragment<FragmentClou
         getViewModel().unlockCertificate(position, completion, this::alertException);
     }
 
-
-
     private void showBillingActivity(String serial) {
         Intent intent = new Intent(this.getContext(), BillActivity.class);
-        intent.putExtra(BillActivity.IS_MAIN_SERVER, false);
+        intent.putExtra(BillActivity.IS_MAIN_SERVER, false); // 메인 서버인 경우에는  true로 설정
         intent.putExtra(BillActivity.OPERATION, BillActivity.UPDATE);
-        //intent.putExtra(BillActivity.SERIAL, serial);
-        // billing 시 mSerial을 가공 후 전달해 주는 로직으로 변경
         intent.putExtra(BillActivity.SERIAL, BillParam.makeBillParam(serial));
-        // opp code값이 result message를 통해 넘어온 경우에 처리되어야 함
-        if (opp != null) intent.putExtra(BillActivity.OPP, opp);
+        if (opp != null)
+            intent.putExtra(BillActivity.OPP, opp);
         startActivityForResult(intent, BillActivity.ID);
     }
 
@@ -501,7 +377,6 @@ public class CloudCertificateListFragment extends ViewModelFragment<FragmentClou
         @Override
         public ItemView onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
             CloudCertificateListFragment.ItemView itemView = ItemView.create(parent);
-
 
             itemView.binding.getRoot().setOnClickListener(view -> {
                 int pos = itemView.getAdapterPosition();

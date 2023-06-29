@@ -1,38 +1,37 @@
-package com.signkorea.cloud.sample.fragments;
+package com.signkorea.cloud.sample.views.fragments;
 
 import android.annotation.SuppressLint;
-import android.app.ActionBar;
 import android.app.AlertDialog;
+import android.content.ActivityNotFoundException;
+import android.content.Intent;
+import android.net.Uri;
 import android.os.Bundle;
 import android.view.View;
+import android.widget.Toast;
 
 import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.navigation.Navigation;
-import androidx.navigation.ui.NavigationUI;
 
+import com.signkorea.cloud.sample.viewModels.InterFragmentStore;
 import com.yettiesoft.cloud.PhoneNumberProofTransaction;
-import com.signkorea.cloud.sample.DataBindingFragment;
-import com.signkorea.cloud.sample.MainActivity;
+import com.signkorea.cloud.sample.views.base.DataBindingFragment;
 import com.signkorea.cloud.sample.R;
-import com.signkorea.cloud.sample.databinding.FragmentPhoneNumberAuthenticationV1Binding;
+import com.signkorea.cloud.sample.databinding.FragmentPhoneNumberAuthenticationV2Binding;
 
 import java.util.Timer;
 import java.util.TimerTask;
 
 import lombok.val;
 
-public class PhoneNumberAuthenticationV1Fragment extends DataBindingFragment<FragmentPhoneNumberAuthenticationV1Binding> {
+public class PhoneNumberAuthenticationV2Fragment extends DataBindingFragment<FragmentPhoneNumberAuthenticationV2Binding> {
     private PhoneNumberProofTransaction transaction;
-    private Timer timer = null;
+    private Timer timer;
 
-    @SuppressWarnings("ConstantConditions")
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-
-        getActivity().getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+        requireActivity().getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override
             public void handleOnBackPressed() {
                 cancel();
@@ -45,15 +44,16 @@ public class PhoneNumberAuthenticationV1Fragment extends DataBindingFragment<Fra
         super.onViewCreated(view, savedInstanceState);
 
         transaction = getInterFragmentStore().accept(
-            R.id.phoneNumberAuthenticationV1Fragment,
-            MainActivity.MoAuthTransaction);
+            R.id.phoneNumberAuthenticationV2Fragment,
+            InterFragmentStore.MO_API_TRANSACTION);
 
         Runnable confirmAction = getInterFragmentStore().accept(
-            R.id.phoneNumberAuthenticationV1Fragment,
-            MainActivity.MoAuthConfirmAction);
+            R.id.phoneNumberAuthenticationV2Fragment,
+            InterFragmentStore.MO_ACTION_CONFIRM);
 
         // 확인
         getBinding().confirmButton.setEnabled(false);
+        getBinding().confirmButton.setBackgroundColor(0xff505050);
         getBinding().confirmButton.setOnClickListener(button -> {
             //noinspection ConstantConditions
             confirmAction.run();
@@ -62,21 +62,57 @@ public class PhoneNumberAuthenticationV1Fragment extends DataBindingFragment<Fra
         // 취소
         getBinding().cancelButton.setOnClickListener(button -> cancel());
 
-        getBinding().setAuthCode(transaction.getAuthCode());
+        // 인증 메시지 보내기
+        getBinding().sendButton.setOnClickListener(button -> sendMessage());
+
+        // 인증 방식 변경
+        getBinding().fallbackButton.setOnClickListener(button -> transaction.fallback());
     }
 
     @Override
     public void onResume() {
         super.onResume();
-
         schedule();
     }
 
     @Override
     public void onPause() {
         super.onPause();
-
         unschedule();
+    }
+
+    @SuppressWarnings("ConstantConditions")
+    private void cancel() {
+        getInterFragmentStore().<Runnable>peek(InterFragmentStore.MO_ACTION_CANCEL).run();
+        getInterFragmentStore().<Runnable>accept(R.id.phoneNumberAuthenticationV2Fragment, InterFragmentStore.MO_ACTION_CANCEL).run();
+    }
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        getInterFragmentStore().accept(R.id.phoneNumberAuthenticationV2Fragment, InterFragmentStore.MO_ACTION_CANCEL);
+    }
+
+    private void sendMessage() {
+        val smsBody = String.format("클라우드 인증: 인증문자 보내기\n[%s]\n이전단계로 돌아가 주세요", transaction.getAuthCode());
+        val intent = new Intent(Intent.ACTION_SENDTO)
+            .setData(Uri.fromParts("smsto", transaction.getFeedbackNumber(), null))
+            .putExtra("sms_body", smsBody);
+
+        try {
+            startActivity(intent);
+        } catch (ActivityNotFoundException ignored) {
+            new AlertDialog.Builder(requireContext())
+                .setMessage("인증 메시지를 보낼 수 없습니다.")
+                .setPositiveButton(android.R.string.ok, null)
+                .show();
+            return;
+        }
+
+        val toastMessage = String.format("SMS에 생성된 인증번호 전송 후 \"%s\"(으)로 돌아가 주세요.", getString(R.string.app_name));
+        Toast.makeText(requireContext().getApplicationContext(), toastMessage, Toast.LENGTH_LONG).show();
+
+        schedule();
     }
 
     @SuppressLint({"SetTextI18n", "DefaultLocale"})
@@ -90,12 +126,13 @@ public class PhoneNumberAuthenticationV1Fragment extends DataBindingFragment<Fra
             } break;
 
             case Complete: {
-                getBinding().confirmButton.setBackgroundColor(0xffe65619);
-                getBinding().confirmButton.setText("확인");
-                getBinding().confirmButton.setEnabled(true);
-                transaction.commit();
-                Navigation.findNavController(getView()).navigate(R.id.homeFragment);
-                //getNavController().navigate(HomeFragment.getInstance().getfid());
+                // TODO
+//                getBinding().confirmButton.setEnabled(true);
+//                getBinding().confirmButton.setBackgroundColor(0xffe65619);
+//                getBinding().confirmButton.setText("확인");
+                // SMS인증이 확인되면 다음 단계로 진행
+                getInterFragmentStore().remove(InterFragmentStore.FALLBACK_FRAGMENT_ID);
+                getBinding().confirmButton.callOnClick();
             } break;
 
             case Canceled:
@@ -108,7 +145,7 @@ public class PhoneNumberAuthenticationV1Fragment extends DataBindingFragment<Fra
     }
 
     private boolean checkStatus(PhoneNumberProofTransaction.Status status, int mismatchCount) {
-        switch (transaction.getStatus()) {
+        switch (status) {
             case InProgress:
                 return true;
 
@@ -147,11 +184,6 @@ public class PhoneNumberAuthenticationV1Fragment extends DataBindingFragment<Fra
         }
 
         return false;
-    }
-
-    @SuppressWarnings("ConstantConditions")
-    private void cancel() {
-        getInterFragmentStore().<Runnable>peek(MainActivity.MoAuthCancelAction).run();
     }
 
     private void schedule() {

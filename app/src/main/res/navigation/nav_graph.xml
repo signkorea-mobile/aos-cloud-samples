@@ -7,8 +7,8 @@
 
     <fragment
         android:id="@+id/homeFragment"
-        android:name="com.signkorea.cloud.sample.fragments.HomeFragment"
-        android:label="Cloud NPKI"
+        android:name="com.signkorea.cloud.sample.views.fragments.HomeFragment"
+        android:label="@string/app_name"
         tools:layout="@layout/fragment_home">
         <action
             android:id="@+id/action_homeFragment_to_accountManagementFragment"
@@ -17,11 +17,8 @@
             android:id="@+id/action_homeFragment_to_certificateManagementFragment"
             app:destination="@id/certificateManagementFragment" />
         <action
-            android:id="@+id/action_homeFragment_to_certificateListFragment"
-            app:destination="@id/certificateListFragment" />
-        <action
             android:id="@+id/action_homeFragment_to_LoginFragment"
-            app:destination="@id/LoginFragment" />
+            app:destination="@id/loginFragment" />
 
         <argument
             android:name="certificateIndex"
@@ -32,12 +29,9 @@
 
     <fragment
         android:id="@+id/accountManagementFragment"
-        android:name="com.signkorea.cloud.sample.fragments.AccountManagementFragment"
+        android:name="com.signkorea.cloud.sample.views.fragments.AccountManagementFragment"
         android:label="계정 관리"
         tools:layout="@layout/fragment_account_management">
-        <action
-            android:id="@+id/action_accountManagementFragment_to_userHistoryFragment"
-            app:destination="@id/userHistoryFragment" />
         <action
             android:id="@+id/action_accountManagementFragment_to_connectHistoryFragment"
             app:destination="@id/connectHistoryFragment" />
@@ -51,12 +45,15 @@
 
     <fragment
         android:id="@+id/certificateManagementFragment"
-        android:name="com.signkorea.cloud.sample.fragments.CertificateManagementFragment"
+        android:name="com.signkorea.cloud.sample.views.fragments.CertificateManagementFragment"
         android:label="인증서 관리(클라우드)"
         tools:layout="@layout/fragment_certificate_management">
         <action
-            android:id="@+id/action_certificateManagementFragment_to_certificateListFragment"
-            app:destination="@id/certificateListFragment" />
+            android:id="@+id/action_certificateManagementFragment_to_localCertificateListFragment"
+            app:destination="@id/localCertificateListFragment" />
+        <action
+            android:id="@+id/action_certificateManagementFragment_to_cloudCertificateListFragment"
+            app:destination="@id/cloudCertificateListFragment" />
         <action
             android:id="@+id/action_certificateManagementFragment_to_issueCertificateFragment"
             app:destination="@id/issueCertificateFragment"/>
@@ -67,72 +64,53 @@
 
     <fragment
         android:id="@+id/autoConnectionDevicesFragment"
-        android:name="com.signkorea.cloud.sample.fragments.AutoConnectionDevicesFragment"
+        android:name="com.signkorea.cloud.sample.views.fragments.AutoConnectionDevicesFragment"
         android:label="자동 연결"
         tools:layout="@layout/fragment_auto_connection_devices" />
 
     <fragment
         android:id="@+id/connectHistoryFragment"
-        android:name="com.signkorea.cloud.sample.fragments.ConnectHistoryFragment"
+        android:name="com.signkorea.cloud.sample.views.fragments.ConnectHistoryFragment"
         android:label="연결 내역"
         tools:layout="@layout/fragment_connect_history" />
 
     <fragment
-        android:id="@+id/userHistoryFragment"
-        android:name="com.signkorea.cloud.sample.fragments.UserHistoryFragment"
-        android:label="서비스 이용 내역"
-        tools:layout="@layout/fragment_user_history" />
-
-    <fragment
         android:id="@+id/secureSettingFragment"
-        android:name="com.signkorea.cloud.sample.fragments.SecureSettingFragment"
+        android:name="com.signkorea.cloud.sample.views.fragments.SecureSettingFragment"
         android:label="보안 설정"
         tools:layout="@layout/fragment_secure_setting" />
 
     <fragment
-        android:id="@+id/certificateListFragment"
-        android:name="com.signkorea.cloud.sample.fragments.CertificateListFragment"
-        tools:layout="@layout/fragment_certificate_list">
+        android:id="@+id/localCertificateListFragment"
+        android:name="com.signkorea.cloud.sample.views.fragments.LocalCertificateListFragment"
+        tools:layout="@layout/fragment_local_certificate_list">
         <argument
             android:name="operation"
             android:defaultValue="get"
             app:argType="com.signkorea.cloud.sample.enums.CertificateOperation" />
-        <argument
-            android:name="bill"
-            android:defaultValue="false"
-            app:argType="boolean" />
-        <action
-            android:id="@+id/action_certificateListFragment_to_signListFragment"
-            app:destination="@id/signListFragment"/>
-        <action
-            android:id="@+id/action_certificateListFragment_to_renewDiscardCertificateFragment"
-            app:destination="@id/renewDiscardCertificateFragment"/>
     </fragment>
 
     <fragment
         android:id="@+id/certificateHistoryFragment"
-        android:name="com.signkorea.cloud.sample.fragments.CertificateHistoryFragment"
+        android:name="com.signkorea.cloud.sample.views.fragments.CertificateHistoryFragment"
         android:label="인증서 이용 내역"
         tools:layout="@layout/fragment_certificate_history" />
 
     <fragment
         android:id="@+id/issueCertificateFragment"
-        android:name="com.signkorea.cloud.sample.fragments.IssueCertificateFragment"
+        android:label="인증서 발급"
+        android:name="com.signkorea.cloud.sample.views.fragments.IssueCertificateFragment"
         tools:layout="@layout/fragment_issue_certificate">
-        <argument
-            android:name="bill"
-            android:defaultValue="false"
-            app:argType="boolean" />
     </fragment>
 
     <fragment
         android:id="@+id/userInfoFormFragment"
-        android:name="com.signkorea.cloud.sample.fragments.UserInfoFormFragment"
+        android:name="com.signkorea.cloud.sample.views.fragments.UserInfoFormFragment"
         tools:layout="@layout/fragment_user_info_form" />
 
     <fragment
         android:id="@+id/conditionsOfUseFragment"
-        android:name="com.signkorea.cloud.sample.fragments.ConditionsOfUseFragment"
+        android:name="com.signkorea.cloud.sample.views.fragments.ConditionsOfUseFragment"
         tools:layout="@layout/fragment_conditions_of_use">
         <argument
             android:name="reason"
@@ -141,68 +119,41 @@
 
     <fragment
         android:id="@+id/phoneNumberAuthenticationV1Fragment"
-        android:name="com.signkorea.cloud.sample.fragments.PhoneNumberAuthenticationV1Fragment"
+        android:name="com.signkorea.cloud.sample.views.fragments.PhoneNumberAuthenticationV1Fragment"
         tools:layout="@layout/fragment_phone_number_authentication_v1" />
 
     <fragment
         android:id="@+id/phoneNumberAuthenticationV2Fragment"
-        android:name="com.signkorea.cloud.sample.fragments.PhoneNumberAuthenticationV2Fragment"
+        android:name="com.signkorea.cloud.sample.views.fragments.PhoneNumberAuthenticationV2Fragment"
         tools:layout="@layout/fragment_phone_number_authentication_v2" />
 
     <fragment
-        android:id="@+id/signListFragment"
-        android:name="com.signkorea.cloud.sample.fragments.SignListFragment"
-        tools:layout="@layout/fragment_sign_list" >
-        <argument
-            android:name="certificateIndex"
-            android:defaultValue="-1"
-            app:argType="integer" />
-        <argument
-            android:name="operation"
-            android:defaultValue="get"
-            app:argType="com.signkorea.cloud.sample.enums.CertificateOperation" />
-    </fragment>
+        android:id="@+id/loginFragment"
+        android:name="com.signkorea.cloud.sample.views.fragments.LoginFragment"
+        android:label="{signMenuType}"
+        tools:layout="@layout/fragment_login">
 
-    <fragment
-        android:id="@+id/renewDiscardCertificateFragment"
-        android:name="com.signkorea.cloud.sample.fragments.RenewDiscardCertificateFragment"
-        tools:layout="@layout/fragment_renew_discard_certificate">
-        <argument
-            android:name="certificateIndex"
-            android:defaultValue="-1"
-            app:argType="integer" />
-    </fragment>
-
-    <fragment
-        android:id="@+id/LoginFragment"
-        android:name="com.signkorea.cloud.sample.fragments.LoginFragment"
-        android:label="{labeltitle}"
-        tools:layout="@layout/fragment_login" >
-
-        <argument
-            android:name="labeltitle"
-            android:defaultValue="로그인"
-            app:argType="string" />
-        <argument
-            android:name="certificateIndex"
-            android:defaultValue="-1"
-            app:argType="integer" />
-        <argument
-            android:name="operation"
-            android:defaultValue="get"
-            app:argType="com.signkorea.cloud.sample.enums.CertificateOperation" />
-        <argument
-            android:name="signtype"
-            android:defaultValue="0"
-            app:argType="integer" />
         <action
-            android:id="@+id/action_LoginFragment_to_CloudCertificateListFragment"
-            app:destination="@id/CloudCertificateListFragment" />
+            android:id="@+id/action_LoginFragment_to_cloudCertificateListFragment"
+            app:popUpTo="@id/loginFragment"
+            app:destination="@id/cloudCertificateListFragment" />
+        <argument
+            android:name="certificateIndex"
+            android:defaultValue="-1"
+            app:argType="integer" />
+        <argument
+            android:name="operation"
+            android:defaultValue="get"
+            app:argType="com.signkorea.cloud.sample.enums.CertificateOperation" />
+        <argument
+            android:name="signMenuType"
+            android:defaultValue="LOGIN"
+            app:argType="com.signkorea.cloud.sample.enums.SignMenuType" />
     </fragment>
 
     <fragment
-        android:id="@+id/CloudCertificateListFragment"
-        android:name="com.signkorea.cloud.sample.fragments.CloudCertificateListFragment"
+        android:id="@+id/cloudCertificateListFragment"
+        android:name="com.signkorea.cloud.sample.views.fragments.CloudCertificateListFragment"
         android:label="인증서 리스트"
         tools:layout="@layout/fragment_cloud_certificate_list" >
 
@@ -211,20 +162,18 @@
             android:defaultValue="get"
             app:argType="com.signkorea.cloud.sample.enums.CertificateOperation" />
         <argument
-            android:name="bill"
-            android:defaultValue="false"
-            app:argType="boolean" />
-        <argument
-            android:name="signtype"
-            android:defaultValue="0"
-            app:argType="integer" />
+            android:name="signMenuType"
+            android:defaultValue="LOGIN"
+            app:argType="com.signkorea.cloud.sample.enums.SignMenuType" />
 
         <action
-            android:id="@+id/action_CloudCertificateListFragment_to_LoginFragment"
-            app:destination="@id/LoginFragment" />
+            android:id="@+id/action_cloudCertificateListFragment_to_LoginFragment"
+            app:popUpTo="@id/loginFragment"
+            app:popUpToInclusive="true"
+            app:destination="@id/loginFragment" />
         <action
-            android:id="@+id/action_CloudCertificateListFragment_to_certificateListFragment"
-            app:destination="@id/certificateListFragment" />
+            android:id="@+id/action_cloudCertificateListFragment_to_localCertificateListFragment"
+            app:destination="@id/localCertificateListFragment" />
     </fragment>
 
 </navigation>

@@ -1,4 +1,4 @@
-package com.signkorea.cloud.sample.fragments;
+package com.signkorea.cloud.sample.views.fragments;
 
 import android.app.AlertDialog;
 import android.os.Bundle;
@@ -8,17 +8,15 @@ import android.view.ViewGroup;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.navigation.Navigation;
 import androidx.recyclerview.widget.RecyclerView;
 
-import com.lumensoft.ks.KSException;
-import com.yettiesoft.cloud.Client;
-import com.yettiesoft.cloud.InvalidLicenseException;
-import com.signkorea.cloud.sample.ViewModelFragment;
+import com.signkorea.cloud.sample.views.base.ViewModelFragment;
 import com.signkorea.cloud.sample.databinding.FragmentAutoConnectionDevicesBinding;
 import com.signkorea.cloud.sample.databinding.ItemAutoConnectDeviceBinding;
 import com.signkorea.cloud.sample.utils.OnceRunnable;
 import com.signkorea.cloud.sample.viewModels.AutoConnectionDevicesFragmentViewModel;
+import com.yettiesoft.cloud.Client;
+import com.yettiesoft.cloud.InvalidLicenseException;
 import com.yettiesoft.cloud.models.AutoConnectDevice;
 
 import java.time.ZoneId;
@@ -44,7 +42,12 @@ public class AutoConnectionDevicesFragment extends
             return;
         }
 
-        getViewModel().loadData(adapter::notifyDataSetChanged, exception -> alertException(exception, true));
+        showLoading();
+        getViewModel().loadData(() -> {
+                    dismissLoading();
+                    adapter.notifyDataSetChanged();
+                },
+                exception -> alertException(exception, true));
     });
 
     @Override
@@ -52,23 +55,6 @@ public class AutoConnectionDevicesFragment extends
         super.onViewCreated(view, savedInstanceState);
 
         getBinding().recyclerView.setAdapter(adapter);
-    }
-
-    @Override
-    public void onAuthenticationError(int i, CharSequence charSequence) {
-        String message = null;
-        if (i == KSException.FAILED_CLOUD_BIO_INVALID_PIN) {
-            message = charSequence.toString();
-        } else {
-            message = i + " : " + charSequence;
-        }
-
-        new AlertDialog.Builder(requireContext())
-                .setTitle("생체 인증 실패")
-                .setMessage(message)
-                .setPositiveButton(android.R.string.ok, (dialog, which) -> {
-                })
-                .show();
     }
 
     @Override
@@ -89,9 +75,10 @@ public class AutoConnectionDevicesFragment extends
 
     private void removeItem(int position) {
         Consumer<Boolean> onItemDeleted = isCurrentDevice -> {
+            dismissLoading();
             if (isCurrentDevice) {
                 // 현재 디바이스 삭제 -> 뒤로 가기
-                Navigation.findNavController(requireView()).popBackStack();
+                getNavController().popBackStack();
             } else {
                 adapter.notifyItemRemoved(position);
             }
@@ -99,6 +86,7 @@ public class AutoConnectionDevicesFragment extends
 
         Consumer<Exception> onError = exception -> alertException(exception, "자동 연결 삭제");
 
+        showLoading();
         getViewModel().removeItem(position, onItemDeleted, onError);
     }
 

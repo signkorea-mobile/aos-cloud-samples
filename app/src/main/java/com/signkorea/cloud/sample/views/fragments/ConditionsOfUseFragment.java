@@ -1,4 +1,4 @@
-package com.signkorea.cloud.sample.fragments;
+package com.signkorea.cloud.sample.views.fragments;
 
 import android.annotation.SuppressLint;
 import android.app.AlertDialog;
@@ -16,12 +16,12 @@ import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
-import com.yettiesoft.cloud.AcknowledgeConditionsOfUseReason;
-import com.signkorea.cloud.sample.DataBindingFragment;
-import com.signkorea.cloud.sample.MainActivity;
+import com.signkorea.cloud.sample.views.base.DataBindingFragment;
 import com.signkorea.cloud.sample.R;
 import com.signkorea.cloud.sample.databinding.FragmentConditionsOfUseBinding;
 import com.signkorea.cloud.sample.utils.OnceRunnable;
+import com.signkorea.cloud.sample.viewModels.InterFragmentStore;
+import com.yettiesoft.cloud.AcknowledgeConditionsOfUseReason;
 
 import java.util.function.BiConsumer;
 
@@ -54,7 +54,7 @@ public class ConditionsOfUseFragment extends DataBindingFragment<FragmentConditi
         getActivity().getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override
             public void handleOnBackPressed() {
-                getInterFragmentStore().<Runnable>peek(MainActivity.MoAuthCancelAction).run();
+                cancel();
             }
         });
     }
@@ -95,7 +95,7 @@ public class ConditionsOfUseFragment extends DataBindingFragment<FragmentConditi
 
         onAgree = getInterFragmentStore().accept(
             R.id.conditionsOfUseFragment,
-            MainActivity.MoAuthConfirmAction);
+            InterFragmentStore.MO_ACTION_CONFIRM);
 
         reason = ConditionsOfUseFragmentArgs.fromBundle(getArguments()).getReason();
     }
@@ -103,7 +103,6 @@ public class ConditionsOfUseFragment extends DataBindingFragment<FragmentConditi
     @Override
     public void onResume() {
         super.onResume();
-
         loadPage.run();
     }
 
@@ -119,15 +118,26 @@ public class ConditionsOfUseFragment extends DataBindingFragment<FragmentConditi
             new Handler(Looper.getMainLooper()).post(() -> {
                 if (reason == AcknowledgeConditionsOfUseReason.updated) {
                     new AlertDialog.Builder(requireContext())
-                        .setTitle("개정 약관 동의")
-                        .setMessage("개정된 약관에 동의하지 않으면 서비스를 이용하실 수 없습니다.")
-                        .setPositiveButton(android.R.string.ok, (dialog, which) -> getInterFragmentStore().<Runnable>peek(MainActivity.MoAuthCancelAction).run())
-                        .setNegativeButton(android.R.string.cancel, null)
+                        .setTitle("약관 개정 안내")
+                        .setMessage("개정된 약관에 동의하신 후 서비스를 이용하실 수 있습니다.")
+                        .setPositiveButton(android.R.string.ok, null)
+                        .setNegativeButton(android.R.string.cancel, (dialog, which) -> cancel())
                         .show();
                 } else {
-                    getInterFragmentStore().<Runnable>peek(MainActivity.MoAuthCancelAction).run();
+                    cancel();
                 }
             });
         }
+    }
+
+    private void cancel() {
+        getInterFragmentStore().<Runnable>accept(R.id.conditionsOfUseFragment, InterFragmentStore.MO_API_CANCEL).run();
+        getInterFragmentStore().<Runnable>peek(InterFragmentStore.MO_ACTION_CANCEL).run();
+    }
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        getInterFragmentStore().accept(R.id.conditionsOfUseFragment, InterFragmentStore.MO_API_CANCEL);
     }
 }

@@ -14,7 +14,7 @@
         android:paddingBottom="35dp"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        tools:context=".fragments.SecureSettingFragment">
+        tools:context=".views.fragments.SecureSettingFragment">
 
         <TextView
             android:id="@+id/title"

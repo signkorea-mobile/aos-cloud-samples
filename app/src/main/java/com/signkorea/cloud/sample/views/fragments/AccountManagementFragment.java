@@ -1,4 +1,4 @@
-package com.signkorea.cloud.sample.fragments;
+package com.signkorea.cloud.sample.views.fragments;
 
 import android.app.AlertDialog;
 import android.os.Bundle;
@@ -9,13 +9,13 @@ import androidx.annotation.Nullable;
 import androidx.navigation.NavDirections;
 import androidx.navigation.Navigation;
 
+import com.signkorea.cloud.sample.views.base.DataBindingFragment;
+import com.signkorea.cloud.sample.databinding.FragmentAccountManagementBinding;
+import com.signkorea.cloud.sample.utils.OnceRunnable;
+import com.signkorea.cloud.sample.viewModels.InterFragmentStore;
 import com.yettiesoft.cloud.Client;
 import com.yettiesoft.cloud.InvalidLicenseException;
 import com.yettiesoft.cloud.NonmemberException;
-import com.signkorea.cloud.sample.DataBindingFragment;
-import com.signkorea.cloud.sample.MainActivity;
-import com.signkorea.cloud.sample.databinding.FragmentAccountManagementBinding;
-import com.signkorea.cloud.sample.utils.OnceRunnable;
 
 import org.jetbrains.annotations.NotNull;
 
@@ -40,7 +40,8 @@ public class AccountManagementFragment extends DataBindingFragment<FragmentAccou
     private final OnceRunnable checkLicense = new OnceRunnable(() -> {
         if (client == null) {
             new AlertDialog.Builder(requireContext())
-                .setMessage("Cloud NPKI 라이센스 정보가 유효하지 않습니다.")
+                .setTitle("라이선스 안내")
+                .setMessage("클라우드 라이선스 정보가 유효하지 않습니다.")
                 .setPositiveButton(android.R.string.ok, (dialog, which) -> {})
                 .show();
         }
@@ -50,22 +51,18 @@ public class AccountManagementFragment extends DataBindingFragment<FragmentAccou
     public void onViewCreated(@NonNull @NotNull View view, @Nullable @org.jetbrains.annotations.Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
 
-        HomeFragment.getInstance().setfid(getNavController().getCurrentDestination().getId());
-
         NavDirections direction;
 
+        // 자동 연결 기기 조회 및 해제
         direction = AccountManagementFragmentDirections.actionAccountManagementFragmentToAutoConnectionDevicesFragment();
         getBinding().autoConnectDevicesButton.setOnClickListener(Navigation.createNavigateOnClickListener(direction));
 
+        // 보안 설정
         direction = AccountManagementFragmentDirections.actionAccountManagementFragmentToSecureSettingFragment();
         getBinding().secureSettingButton.setOnClickListener(Navigation.createNavigateOnClickListener(direction));
 
-        getBinding().closeAccountButton.setOnClickListener(this::deleteAccount);
-
-        // 연결 끊기
-        getBinding().disconnectButton.setOnClickListener(this::onDisconnect);
-
-
+        getBinding().closeAccountButton.setOnClickListener(this::deleteAccount);    // 탈퇴
+        getBinding().disconnectButton.setOnClickListener(this::onDisconnect);   // 연결 끊기
 
         initClient.run();
     }
@@ -73,7 +70,6 @@ public class AccountManagementFragment extends DataBindingFragment<FragmentAccou
     @Override
     public void onResume() {
         super.onResume();
-
         checkLicense.run();
     }
 
@@ -81,18 +77,20 @@ public class AccountManagementFragment extends DataBindingFragment<FragmentAccou
         Runnable onAccountClosed = () -> new AlertDialog.Builder(requireContext())
                 .setTitle("회원 탈퇴")
                 .setMessage("공동 인증 서비스에서 탈퇴 하였습니다.")
-                .setPositiveButton(android.R.string.ok, (dialog, which) ->
-                    Navigation.findNavController(requireView()).popBackStack()
-                )
+                .setPositiveButton(android.R.string.ok, (dialog, which) -> {
+                        dismissLoading();
+                        getNavController().popBackStack();
+                })
                 .show();
 
         Consumer<Exception> onError = exception -> {
+            dismissLoading();
             if (exception instanceof NonmemberException) {
                 new AlertDialog.Builder(requireContext())
                         .setTitle("회원 탈퇴 실패")
                         .setMessage("공동 인증 서비스 회원이 아닙니다.")
                         .setPositiveButton(android.R.string.ok, (dialog, which) -> Optional
-                                .ofNullable(getInterFragmentStore().<Runnable>peek(MainActivity.MoAuthCancelAction))
+                                .ofNullable(getInterFragmentStore().<Runnable>peek(InterFragmentStore.MO_ACTION_CANCEL))
                                 .ifPresent(Runnable::run)
                         )
                         .show();
@@ -110,6 +108,7 @@ public class AccountManagementFragment extends DataBindingFragment<FragmentAccou
                 .setMessage("공동 인증 서비스에서 탈퇴 하시겠습니까?")
                 .setPositiveButton(android.R.string.ok, (dialog, which) -> {
                     if (client != null) {
+                        showLoading();
                         client.deleteAccount(onAccountClosed, onError);
                     }
                 })
@@ -147,38 +146,8 @@ public class AccountManagementFragment extends DataBindingFragment<FragmentAccou
 
         new AlertDialog.Builder(requireContext())
                 .setMessage("연결을 끊습니다.")
-                .setPositiveButton(android.R.string.ok, (dialog, which) ->
-                        client.disconnect(completion, onError)
-                )
-                .setNegativeButton(android.R.string.cancel, (dialog, which) -> {})
-                .show();
-    }
-
-    private void onCheckAutoConnect(View view) {
-        if (client == null) {
-            return;
-        }
-
-        Consumer<Boolean> completion = connected -> new AlertDialog.Builder(requireContext())
-                .setTitle("연결 확인")
-                .setMessage(connected ? "서버와 연결되어 있습니다." : "서버와 연결되어 있지 않습니다.")
-                .setPositiveButton(android.R.string.ok, (dialog, which) -> {})
-                .show();
-
-        Consumer<Exception> onError = exception -> alertException(exception, "연결 확인");
-
-        client.checkConnect(completion, onError);
-    }
-
-    private void getCurrentDeviceId(View view) {
-        if (client == null) {
-            return;
-        }
-
-        new AlertDialog.Builder(requireContext())
-                .setTitle("deviceID")
-                .setMessage(client.getCurrentDeviceId())
-                .setPositiveButton(android.R.string.ok, (dialog, which) -> {})
+                .setPositiveButton(android.R.string.ok, (dialog, which) -> client.disconnect(completion, onError))
+                .setNegativeButton(android.R.string.cancel, null)
                 .show();
     }
 }

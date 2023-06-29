@@ -1,29 +1,23 @@
-package com.signkorea.cloud.sample.fragments;
+package com.signkorea.cloud.sample.views.fragments;
 
 import android.app.AlertDialog;
-import android.app.DatePickerDialog;
 import android.os.Bundle;
 import android.view.View;
-import android.widget.Toast;
 
 import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.fragment.app.FragmentTransaction;
-import androidx.navigation.Navigation;
 
-import com.lumensoft.ks.KSException;
-import com.yettiesoft.cloud.Client;
-import com.signkorea.cloud.sample.MainActivity;
 import com.signkorea.cloud.sample.R;
-import com.signkorea.cloud.sample.SimpleSharedPreferences;
-import com.signkorea.cloud.sample.ViewModelFragment;
+import com.signkorea.cloud.sample.utils.SimpleSharedPreferences;
+import com.signkorea.cloud.sample.views.base.ViewModelFragment;
 import com.signkorea.cloud.sample.databinding.FragmentUserInfoFormBinding;
+import com.signkorea.cloud.sample.viewModels.InterFragmentStore;
 import com.signkorea.cloud.sample.viewModels.UserInfoFormFragmentViewModel;
+import com.yettiesoft.cloud.Client;
 
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
-import java.util.Calendar;
 import java.util.Date;
 
 public class UserInfoFormFragment extends ViewModelFragment<FragmentUserInfoFormBinding, UserInfoFormFragmentViewModel> {
@@ -35,7 +29,7 @@ public class UserInfoFormFragment extends ViewModelFragment<FragmentUserInfoForm
         getActivity().getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override
             public void handleOnBackPressed() {
-                getInterFragmentStore().<Runnable>peek(MainActivity.MoAuthCancelAction).run();
+                cancel();
             }
         });
     }
@@ -46,23 +40,9 @@ public class UserInfoFormFragment extends ViewModelFragment<FragmentUserInfoForm
 
         getViewModel().init(requireContext());
 
-        // 생년월일
-        /*getBinding().birthdayField.setOnClickListener(v -> {
-            DatePickerDialog.OnDateSetListener listener = (view1, year, month, dayOfMonth) ->
-                    getViewModel().setBirthday(year, month, dayOfMonth);
-
-            DatePickerDialog datePickerDialog = new DatePickerDialog(
-                    getActivity(),
-                    listener,
-                    getViewModel().birthday.get(Calendar.YEAR),
-                    getViewModel().birthday.get(Calendar.MONTH),
-                    getViewModel().birthday.get(Calendar.DATE));
-            datePickerDialog.show();
-        });
-*/
         Client.UserInfoAcceptor userInfoAcceptor = getInterFragmentStore().accept(
                 R.id.userInfoFormFragment,
-                MainActivity.MoAuthConfirmAction);
+                InterFragmentStore.MO_ACTION_CONFIRM);
 
         // 확인
         getBinding().confirmButton.setOnClickListener(button -> {
@@ -113,29 +93,18 @@ public class UserInfoFormFragment extends ViewModelFragment<FragmentUserInfoForm
 
         // 취소
         getBinding().cancelButton.setOnClickListener(button -> {
-            //noinspection ConstantConditions
-            getInterFragmentStore().<Runnable>peek(MainActivity.MoAuthCancelAction).run();
-
-            getNavController().navigate(HomeFragment.getInstance().getfid());
-            //Navigation.findNavController(getView()).navigate(R.id.homeFragment);
-
+            cancel();
         });
     }
 
-    @Override
-    public void onAuthenticationError(int i, CharSequence charSequence) {
-        String message = null;
-        if (i == KSException.FAILED_CLOUD_BIO_INVALID_PIN) {
-            message = charSequence.toString();
-        } else {
-            message = i + " : " + charSequence;
-        }
+    private void cancel() {
+        getInterFragmentStore().<Runnable>accept(R.id.userInfoFormFragment, InterFragmentStore.MO_API_CANCEL).run();
+        getInterFragmentStore().<Runnable>peek(InterFragmentStore.MO_ACTION_CANCEL).run();
+    }
 
-        new AlertDialog.Builder(requireContext())
-                .setTitle("생체 인증 실패")
-                .setMessage(message)
-                .setPositiveButton(android.R.string.ok, (dialog, which) -> {
-                })
-                .show();
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        getInterFragmentStore().accept(R.id.userInfoFormFragment, InterFragmentStore.MO_API_CANCEL);
     }
 }

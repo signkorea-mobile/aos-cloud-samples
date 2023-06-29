@@ -4,6 +4,7 @@
 ### Custom ###
 app/libs/*
 app/**/jniLibs/*
+.idea
 
 ### Java ###
 # Compiled class file

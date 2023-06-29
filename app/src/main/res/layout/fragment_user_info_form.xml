@@ -14,7 +14,7 @@
         android:paddingEnd="35dp"
         android:paddingTop="30dp"
         android:paddingBottom="35dp"
-        tools:context=".fragments.UserInfoFormFragment">
+        tools:context=".views.fragments.UserInfoFormFragment">
 
         <TextView
             android:id="@+id/title"

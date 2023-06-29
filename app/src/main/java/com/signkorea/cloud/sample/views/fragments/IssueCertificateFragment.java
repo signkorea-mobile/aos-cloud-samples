@@ -1,4 +1,4 @@
-package com.signkorea.cloud.sample.fragments;
+package com.signkorea.cloud.sample.views.fragments;
 
 import android.app.Activity;
 import android.app.AlertDialog;
@@ -8,22 +8,21 @@ import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 
-import com.lumensoft.ks.KSException;
-import com.signkorea.certmanager.BillActivity;
-import com.signkorea.certmanager.BillParam;
-import com.yettiesoft.cloud.Client;
-import com.yettiesoft.cloud.InvalidLicenseException;
-import com.yettiesoft.cloud.InvalidPinException;
-import com.signkorea.cloud.sample.ViewModelFragment;
-import com.signkorea.cloud.sample.databinding.AlertPasswordBinding;
-import com.signkorea.cloud.sample.databinding.FragmentIssueCertificateBinding;
-import com.signkorea.cloud.sample.enums.CertificateOperation;
-import com.signkorea.cloud.sample.viewModels.IssueCertificateFragmentViewModel;
-
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.databinding.Observable;
 import androidx.databinding.ObservableField;
+
+import com.signkorea.certmanager.BillActivity;
+import com.signkorea.certmanager.BillParam;
+import com.signkorea.cloud.sample.views.base.ViewModelFragment;
+import com.signkorea.cloud.sample.databinding.AlertPasswordBinding;
+import com.signkorea.cloud.sample.databinding.FragmentIssueCertificateBinding;
+import com.signkorea.cloud.sample.enums.CertificateOperation;
+import com.signkorea.cloud.sample.viewModels.IssueCertificateFragmentViewModel;
+import com.yettiesoft.cloud.Client;
+import com.yettiesoft.cloud.InvalidLicenseException;
+import com.yettiesoft.cloud.InvalidPinException;
 
 import java.util.Hashtable;
 import java.util.function.Consumer;
@@ -32,13 +31,10 @@ public class IssueCertificateFragment extends ViewModelFragment<FragmentIssueCer
 
     private String opp = null;
     private CertificateOperation operation = CertificateOperation.issue;
-    private boolean withBilling = false;
 
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
-
-        withBilling = CertificateListFragmentArgs.fromBundle(getArguments()).getBill();
 
         try {
             getViewModel()
@@ -51,23 +47,6 @@ public class IssueCertificateFragment extends ViewModelFragment<FragmentIssueCer
         getBinding().issue.setOnClickListener(view1 -> issue());
         getBinding().savePhone.setOnClickListener(view1 -> savePhone());
         getBinding().saveCloud.setOnClickListener(view1 -> saveCloud());
-    }
-
-    @Override
-    public void onAuthenticationError(int i, CharSequence charSequence) {
-        String message = null;
-        if (i == KSException.FAILED_CLOUD_BIO_INVALID_PIN) {
-            message = charSequence.toString();
-        } else {
-            message = i + " : " + charSequence;
-        }
-
-        new AlertDialog.Builder(requireContext())
-                .setTitle("생체 인증 실패")
-                .setMessage(message)
-                .setPositiveButton(android.R.string.ok, (dialog, which) -> {
-                })
-                .show();
     }
 
     @Override
@@ -84,12 +63,12 @@ public class IssueCertificateFragment extends ViewModelFragment<FragmentIssueCer
                         .setNegativeButton(android.R.string.cancel, (dialog, which) -> {})
                         .show());
                 };
-                getViewModel().issue(completion, withBilling);
+                getViewModel().issue(completion);
             }
             // 수행을 제대로 하지 못한 경우
             else if(resultCode == Activity.RESULT_CANCELED)
             {
-                String reason = "빌링취소 : ";
+                String reason = "발급 취소 : ";
                 if(data != null)
                     reason += data.getStringExtra(BillActivity.REASON);
 
@@ -105,35 +84,28 @@ public class IssueCertificateFragment extends ViewModelFragment<FragmentIssueCer
 
     private void issue() {
         Consumer<Hashtable<String, Object>> completion = (ret) -> {
+            dismissLoading();
+
             if (((String)ret.get("CODE")).equalsIgnoreCase("-4100") &&
                 ((String)ret.get("MESSAGE")).startsWith("SKM_CA_0001")) {
 
-                // cloud 용 opp code 값 setting
-                if(((String)ret.get("MESSAGE")).contains("SK_MC")) {
+                // cloud 용 opp code 값 setting       TODO 어디 들어가고 어디 빠질지
+                if(((String)ret.get("MESSAGE")).contains("SK_MC"))
                     opp = "SK_MC";
-                }
 
-                requireActivity().runOnUiThread(() -> new AlertDialog.Builder(requireActivity())
-                    .setMessage("CODE : " + "-4100" + "\n" + "MSG : 공동인증서(구 공인인증서) 비용을 납부하셔야 합니다. 진행하시겠습니까?")
-                    .setPositiveButton(android.R.string.ok, (dialog, which) -> {
-                        showBillingActivity(getViewModel().refNum.get());
-                    })
-                    .setNegativeButton(android.R.string.cancel, (dialog, which) -> {
-                        dialog.cancel();// Action for 'NO' Button
-                        // 인증서 발급 취소됨. 어디로 갈건지 고객사에서 설정하세요.
-                    })
-                    .show());
+                showBillingActivity(getViewModel().refNum.get());
             } else {
                 requireActivity().runOnUiThread(() -> new AlertDialog.Builder(requireActivity())
                     .setTitle((String)ret.get("CODE"))
                     .setMessage((String)ret.get("MESSAGE") + " - " + getViewModel().getIssuedCertDN())
-                    .setPositiveButton(android.R.string.ok, (dialog, which) -> {})
-                    .setNegativeButton(android.R.string.cancel, (dialog, which) -> {})
+                    .setPositiveButton(android.R.string.ok, null)
+                    .setNegativeButton(android.R.string.cancel, null)
                     .show());
             }
         };
 
-        getViewModel().issue(completion, withBilling);
+        showLoading();
+        getViewModel().issue(completion);
 
     }
 
@@ -147,12 +119,16 @@ public class IssueCertificateFragment extends ViewModelFragment<FragmentIssueCer
     }
 
     private void saveCloud () {
-        Runnable completion = () -> new AlertDialog.Builder(requireContext())
-            .setTitle("Cloud 저장 성공")
-            .setPositiveButton(android.R.string.ok, (dialog, which) -> {})
-            .show();
+        Runnable completion = () -> {
+            dismissLoading();
+            new AlertDialog.Builder(requireContext())
+                    .setTitle("Cloud 저장 성공")
+                    .setPositiveButton(android.R.string.ok, null)
+                    .show();
+        };
 
         Consumer<Exception> onError = (e) -> {
+            dismissLoading();
             final String errorMessage;
 
             if (e instanceof InvalidPinException) {
@@ -169,13 +145,13 @@ public class IssueCertificateFragment extends ViewModelFragment<FragmentIssueCer
             new AlertDialog.Builder(requireContext())
                 .setTitle("Cloud 저장 실패")
                 .setMessage(errorMessage)
-                .setPositiveButton(android.R.string.ok, (dialog, which) -> {
-                })
+                .setPositiveButton(android.R.string.ok, null)
                 .show();
         };
 
         acquirePassword(requireContext(), "인증서 발급 저장",
             true, false, "", pin -> {
+                showLoading();
                 getViewModel().saveCloud(pin, completion, onError);
             });
     }
@@ -183,12 +159,10 @@ public class IssueCertificateFragment extends ViewModelFragment<FragmentIssueCer
     private void showBillingActivity(String reference) {
         Intent intent = new Intent(this.getContext(), BillActivity.class);
         intent.putExtra(BillActivity.IS_MAIN_SERVER, false); // 메인 서버인 경우에는  true로 설정
-        intent.putExtra(BillActivity.OPERATION, BillActivity.ISSUE); // 갱신인 경우에는 BillActivity.UPDATE 적용
-        //intent.putExtra(BillActivity.REFERENCE, reference); // 갱신인 경우에는 인증서 일련번호 스트링 입력
-        // billing 시 mReference를 가공 후 전달해 주는 로직으로 변경
-        intent.putExtra(BillActivity.REFERENCE, BillParam.makeBillParam(reference)); // 갱신인 경우에는 인증서 일련번호 스트링 입력
-        // opp code값이 result message를 통해 넘어온 경우에 처리되어야 함
-        if (opp != null) intent.putExtra(BillActivity.OPP, opp);
+        intent.putExtra(BillActivity.OPERATION, BillActivity.ISSUE);
+        intent.putExtra(BillActivity.REFERENCE, BillParam.makeBillParam(reference));
+        if (opp != null)
+            intent.putExtra(BillActivity.OPP, opp);
         startActivityForResult(intent, BillActivity.ID); // 결과는 onActivityResult에서 확인
     }
 

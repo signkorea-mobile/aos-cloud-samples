@@ -1,7 +1,11 @@
-package com.signkorea.cloud.sample.fragments;
+package com.signkorea.cloud.sample.views.fragments;
 
 import android.app.AlertDialog;
 import android.os.Bundle;
+import android.util.Base64;
+import android.util.Log;
+import android.view.LayoutInflater;
+import android.view.View;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -9,12 +13,6 @@ import androidx.databinding.Observable;
 import androidx.databinding.ObservableField;
 import androidx.navigation.NavDirections;
 import androidx.navigation.Navigation;
-import android.util.Base64;
-import android.util.Log;
-import android.view.LayoutInflater;
-import android.view.View;
-import android.widget.RadioButton;
-import android.widget.Toast;
 
 import com.lumensoft.ks.KSCertificate;
 import com.lumensoft.ks.KSException;
@@ -22,19 +20,21 @@ import com.lumensoft.ks.KSSign;
 import com.signkorea.cloud.Bio;
 import com.signkorea.cloud.KSCertificateExt;
 import com.signkorea.cloud.KSCertificateManagerExt;
+import com.signkorea.cloud.sample.R;
+import com.signkorea.cloud.sample.databinding.AlertPasswordBinding;
+import com.signkorea.cloud.sample.databinding.FragmentLoginBinding;
+import com.signkorea.cloud.sample.enums.CertificateOperation;
+import com.signkorea.cloud.sample.enums.SignMenuType;
+import com.signkorea.cloud.sample.utils.OnceRunnable;
+import com.signkorea.cloud.sample.viewModels.InterFragmentStore;
+import com.signkorea.cloud.sample.views.base.DataBindingFragment;
 import com.signkorea.securedata.ProtectedData;
 import com.signkorea.securedata.SecureData;
 import com.yettiesoft.cloud.Client;
 import com.yettiesoft.cloud.InvalidLicenseException;
-import com.signkorea.cloud.sample.DataBindingFragment;
-import com.signkorea.cloud.sample.databinding.AlertPasswordBinding;
-import com.signkorea.cloud.sample.databinding.FragmentLoginBinding;
-import com.signkorea.cloud.sample.enums.CertificateOperation;
-import com.signkorea.cloud.sample.utils.OnceRunnable;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -44,68 +44,62 @@ public class LoginFragment extends DataBindingFragment<FragmentLoginBinding> imp
     private int certificateIndex = -1;    // 선택된 인증서 index
 
     private CertificateOperation operation = CertificateOperation.get;
+    private SignMenuType menuType;
 
     private List<KSCertificateExt> certificates = new ArrayList<>();
 
-    private final KSCertificateManagerExt client = new KSCertificateManagerExt();
+    private final KSCertificateManagerExt certMgr = new KSCertificateManagerExt();
 
     private Bio bio = null;
 
     private final OnceRunnable initClient = new OnceRunnable(() -> {
-        Consumer<Exception> onError = e -> new AlertDialog.Builder(requireContext())
-                .setTitle("인증서 로딩 실패1")
-                .setMessage(e.getMessage())
-                .setPositiveButton(android.R.string.ok, (dialog, which) -> {
-                })
-                .show();
+        Consumer<Exception> onError = e -> alertException(e, menuType.getLabel(), true);
 
         try {
-            client.init(requireContext().getApplicationContext());
+            certMgr.init(requireContext().getApplicationContext());
         } catch (InvalidLicenseException e) {
-            new AlertDialog.Builder(requireContext())
-                    .setTitle("인증서 로딩 실패2")
-                    .setMessage(e.getMessage())
-                    .setPositiveButton(android.R.string.ok, (dialog, which) -> {
-                    })
-                    .show();
+            alertException(e, "라이선스 안내", true);
         }
 
-        client.setClientDelegate((Client.Delegate) requireActivity());
+        certMgr.setClientDelegate((Client.Delegate) requireActivity());
 
         Predicate<KSCertificateExt> certificateFilter = certInfo -> true;
 
-        client.getUserCertificateListCloud((certificates) -> {
+        showLoading();
+        certMgr.getUserCertificateListCloud((certificates) -> {
+            dismissLoading();
+
             this.certificates = certificates.stream().filter(certificateFilter).collect(Collectors.toList());
 
-            //certificateIndex = LoginFragmentArgs.fromBundle(getArguments()).getCertificateIndex();
-
-            certificateIndex = HomeFragment.getInstance().getindex();
+            certificateIndex = LoginFragmentArgs.fromBundle(getArguments()).getCertificateIndex();
 
             if (certificateIndex >= 0) {
                 getBinding().selectdnText.setText(this.certificates.get(certificateIndex).getSubject());
 
-                //getBinding().rgBtn1.setVisibility(View.VISIBLE);
+                getBinding().authTypeBtnPin.setVisibility(View.VISIBLE);
+                getBinding().authTypeBtnFinger.setVisibility(View.VISIBLE);
 
-                getBinding().rgBtn1.setVisibility(View.VISIBLE);
-                getBinding().rgBtn2.setVisibility(View.VISIBLE);
+                menuType = LoginFragmentArgs.fromBundle(getArguments()).getSignMenuType();
+                switch(menuType) {
+                    case LOGIN:
+                        getBinding().koscomCmsSign.setVisibility(View.VISIBLE);
+                        getBinding().koscomCmsSign.setText("로그인 서명");
+                        break;
 
-                if (LoginFragmentArgs.fromBundle(getArguments()).getSigntype() == 1) {
-                    getBinding().koscomCmsSign.setVisibility(View.VISIBLE);
-                    getBinding().koscomCmsSign.setText("로그인서명");
-                }
-                if (LoginFragmentArgs.fromBundle(getArguments()).getSigntype() == 2) {
-                    getBinding().koscomBriefSign.setVisibility(View.VISIBLE);
-                }
-                if (LoginFragmentArgs.fromBundle(getArguments()).getSigntype() == 3) {
-                    getBinding().koscomCmsSign.setVisibility(View.VISIBLE);
-                    getBinding().getRandom.setVisibility(View.VISIBLE);
-                    getBinding().koscomCmsSign.setText("서명데이터 추출");
+                    case ORDER:
+                        getBinding().koscomBriefSign.setVisibility(View.VISIBLE);
+                        break;
+
+                    case REGISTER:
+                        getBinding().koscomCmsSign.setVisibility(View.VISIBLE);
+                        getBinding().getRandom.setVisibility(View.VISIBLE);
+                        getBinding().koscomCmsSign.setText("서명 데이터 추출");
+                        break;
                 }
 
                 if (this.certificates.get(certificateIndex).isCloud()) {
                     String id = this.certificates.get(certificateIndex).getCertInfo().getId();
                     if (bio.isBio(id)) {
-                        //getBinding().rgBtn2.setVisibility(View.VISIBLE);
                         getBinding().deleteBio.setVisibility(View.VISIBLE);
                     }
                 }
@@ -117,11 +111,13 @@ public class LoginFragment extends DataBindingFragment<FragmentLoginBinding> imp
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
 
+        getInterFragmentStore().entrust(InterFragmentStore.FALLBACK_FRAGMENT_ID, R.id.homeFragment);
+
         NavDirections directions;
         // 인증서 선택
         directions = LoginFragmentDirections.actionLoginFragmentToCloudCertificateListFragment()
                 .setOperation(CertificateOperation.get)
-                .setSigntype(LoginFragmentArgs.fromBundle(getArguments()).getSigntype());
+                .setSignMenuType(LoginFragmentArgs.fromBundle(getArguments()).getSignMenuType());
         getBinding().certButton.setOnClickListener(
                 Navigation.createNavigateOnClickListener(directions));
 
@@ -132,16 +128,17 @@ public class LoginFragment extends DataBindingFragment<FragmentLoginBinding> imp
 
         initClient.run();
 
-        bio = new Bio(requireActivity(), this.client);
+        bio = new Bio(requireActivity(), this.certMgr);
         bio.setCallback(this);
     }
 
     private void sign(Bio.OPERATION type) {
         if (this.certificates.get(certificateIndex).isCloud()) {
-            if(getBinding().rgBtn2.isChecked())
+            if(getBinding().authTypeBtnFinger.isChecked())
             {
                 String id = this.certificates.get(certificateIndex).getCertInfo().getId();
                 if (bio.isBio(id)) {
+                    showLoading();
                     bio.getBioCloud(id, type);
                 } else {
                     new AlertDialog.Builder(requireActivity())
@@ -149,14 +146,11 @@ public class LoginFragment extends DataBindingFragment<FragmentLoginBinding> imp
                             .setMessage("등록된 생체정보가 없습니다.\n등록을 진행 하시겠습니까?")
                             .setPositiveButton(android.R.string.ok, (dialog, which) -> {
                                 acquirePassword(true, false, "", pin -> {
-
+                                    showLoading();
                                     bio.addBioCloud(id, new SecureData(pin.getBytes()));
                                 });
                             })
-                            .setNegativeButton(android.R.string.cancel, (dialog, which) -> {
-                                dialog.cancel();// Action for 'NO' Button
-                                // 인증서 발급 취소됨. 어디로 갈건지 고객사에서 설정하세요.
-                            })
+                            .setNegativeButton(android.R.string.cancel, null)
                             .show();
                 }
             }
@@ -174,41 +168,28 @@ public class LoginFragment extends DataBindingFragment<FragmentLoginBinding> imp
         }
     }
 
-    private void cloudSign (Bio.OPERATION type, ProtectedData encryptedPin){
-
-        BiConsumer<byte[], Integer> completionCache = (signature, isCloud) -> {
-            encryptedPin.clear();
-            new AlertDialog.Builder(requireContext())
-                    .setTitle("전자서명 성공 [" + (isCloud == 0 ? "Cache" : "Cloud") + "]")
-                    .setMessage(Base64.encodeToString(signature, Base64.NO_WRAP))
-                    .setPositiveButton(android.R.string.ok, (dialog, which) -> {
-                    })
-                    .show();
-            Log.d("yettie", Base64.encodeToString(signature, Base64.NO_WRAP));
-        };
-
+    private void cloudSign(Bio.OPERATION type, ProtectedData encryptedPin){
         Consumer<byte[]> completion = signature -> {
+            dismissLoading();
             encryptedPin.clear();
             new AlertDialog.Builder(requireContext())
                     .setTitle("클라우드 전자서명 성공")
                     .setMessage(Base64.encodeToString(signature, Base64.NO_WRAP))
-                    .setPositiveButton(android.R.string.ok, (dialog, which) -> {
-                    })
+                    .setPositiveButton(android.R.string.ok, null)
                     .show();
-            Log.d("yettie", Base64.encodeToString(signature, Base64.NO_WRAP));
+            Log.d(TAG, Base64.encodeToString(signature, Base64.NO_WRAP));
         };
 
         Consumer<byte[]> getRandomCompletion = random -> {
+            dismissLoading();
             encryptedPin.clear();
             new AlertDialog.Builder(requireContext())
                     .setTitle("R 값 획득 성공")
                     .setMessage(Base64.encodeToString(random, Base64.NO_WRAP))
-                    .setPositiveButton(android.R.string.ok, (dialog, which) -> {
-                    })
+                    .setPositiveButton(android.R.string.ok, null)
                     .show();
-            Log.d("yettie", Base64.encodeToString(random, Base64.NO_WRAP));
+            Log.d(TAG, Base64.encodeToString(random, Base64.NO_WRAP));
         };
-
 
         Consumer<Exception> onError = exception -> {
             encryptedPin.clear();
@@ -216,97 +197,45 @@ public class LoginFragment extends DataBindingFragment<FragmentLoginBinding> imp
         };
 
         byte[] plain = "sign plain".getBytes();
-        byte[] dummy = "          ".getBytes();
 
         KSCertificateExt cert = certificates.get(certificateIndex);
-
-        //boolean cache = getBinding().cacheSwitch.isChecked();
-        boolean cache = false;
+        showLoading();
         switch (type) {
-
             case KOSCOMCMSSIGN:
-                if (operation == CertificateOperation.cache) {
-                    client.koscomCMSSignExt(cert.getId(), plain, encryptedPin, cache, completionCache, onError);
-                } else {
-                    if (cache) {
-                        try {
-                            byte[] signature = client.koscomCMSSignCache(cert.getId(), plain, encryptedPin);
-                            new AlertDialog.Builder(requireContext())
-                                    .setTitle("클라우드(cache) 전자서명 성공")
-                                    .setMessage(Base64.encodeToString(signature, Base64.NO_WRAP))
-                                    .setPositiveButton(android.R.string.ok, (dialog, which) -> {
-                                    })
-                                    .show();
-                        } catch (Exception e) {
-                            alertException(e, operation.getLabel(), false);
-                        } finally {
-                            encryptedPin.clear();
-                        }
-                    } else {
-                        client.koscomCMSSign(cert.getId(), plain, encryptedPin, completion, onError);
-                    }
-                }
+                certMgr.koscomCMSSign(cert.getId(), plain, encryptedPin, completion, onError);
                 break;
+
             case KOSCOMBRIEFSIGN:
-                if (cache) {
-                    try {
-                        byte[] signature = client.koscomBriefSignCache(cert.getId(), plain, encryptedPin);
-                        new AlertDialog.Builder(requireContext())
-                                .setTitle("클라우드(cache) 전자서명 성공")
-                                .setMessage(Base64.encodeToString(signature, Base64.NO_WRAP))
-                                .setPositiveButton(android.R.string.ok, (dialog, which) -> {
-                                })
-                                .show();
-                    } catch (Exception e) {
-                        alertException(e, operation.getLabel(), false);
-                    } finally {
-                        encryptedPin.clear();
-                    }
-                } else {
-                    client.koscomBriefSign(cert.getId(), plain, encryptedPin, completion, onError);
-                }
+                certMgr.koscomBriefSign(cert.getId(), plain, encryptedPin, completion, onError);
                 break;
 
             case GETRANDOM:
-                if (cache) {
-                    try {
-                        byte[] signature = client.getRandomCache(cert.getId(), encryptedPin);
-                        new AlertDialog.Builder(requireContext())
-                                .setTitle("R(cache) 값 획득 성공")
-                                .setMessage(Base64.encodeToString(signature, Base64.NO_WRAP))
-                                .setPositiveButton(android.R.string.ok, (dialog, which) -> {
-                                })
-                                .show();
-                    } catch (Exception e) {
-                        alertException(e, operation.getLabel(), false);
-                    } finally {
-                        encryptedPin.clear();
-                    }
-                } else {
-                    client.getRandom(cert.getId(), encryptedPin, getRandomCompletion, onError);
-                }
+                certMgr.getRandom(cert.getId(), encryptedPin, getRandomCompletion, onError);
                 break;
+
             default:
+                assert false: "unknown sign type.";
                 break;
         }
     }
 
     private void localSign (Bio.OPERATION type, ProtectedData encryptedPin) {
         byte[] plain = "sign plain".getBytes();
-        byte[] dummy = "          ".getBytes();
 
         KSCertificate cert = this.certificates.get(certificateIndex).cert;
         byte[] signature = null;
         try {
             switch (type) {
-
                 case KOSCOMCMSSIGN:
                     signature = KSSign.sign(KSSign.KOSCOM, cert, plain, encryptedPin);
                     break;
+
                 case KOSCOMBRIEFSIGN:
                     signature = KSSign.sign(KSSign.KOSCOM_BRIEF, cert, plain, encryptedPin);
                     break;
+
                 default:
+                    assert false: "unknown sign type.";
                     break;
             }
 
@@ -315,7 +244,7 @@ public class LoginFragment extends DataBindingFragment<FragmentLoginBinding> imp
                     .setMessage(Base64.encodeToString(signature, Base64.NO_WRAP))
                     .setPositiveButton(android.R.string.ok, (dialog, which) -> {})
                     .show();
-            Log.d("yettie", Base64.encodeToString(signature, Base64.NO_WRAP));
+            Log.d(TAG, Base64.encodeToString(signature, Base64.NO_WRAP));
 
         } catch (KSException e) {
             new AlertDialog.Builder(requireContext())
@@ -341,12 +270,15 @@ public class LoginFragment extends DataBindingFragment<FragmentLoginBinding> imp
         new AlertDialog.Builder(requireContext())
                 .setTitle(title)
                 .setMessage(message)
-                .setPositiveButton(android.R.string.ok, (dialog, which) -> {})
+                .setPositiveButton(android.R.string.ok, null)
+                .setOnDismissListener(dialog -> {
+                    getBinding().authTypeBtnPin.setSelected(true);
+                    getBinding().deleteBio.setVisibility(View.INVISIBLE);
+                })
                 .show();
     }
 
     private void acquirePassword(boolean pinMode, boolean confirmPassword, String initialPassword, Consumer<String> completion) {
-
         ObservableField<String> pwd1 = new ObservableField<String>();
         ObservableField<String> pwd2 = new ObservableField<String>();
 
@@ -396,38 +328,47 @@ public class LoginFragment extends DataBindingFragment<FragmentLoginBinding> imp
 
     @Override
     public void onAuthenticationError(int i, CharSequence charSequence) {
-        String message = null;
-        if (i == KSException.FAILED_CLOUD_BIO_INVALID_PIN) {
-            message = charSequence.toString();
-        } else {
-            message = i + " : " + charSequence;
-        }
+        dismissLoading();
 
-        new AlertDialog.Builder(requireContext())
-                .setTitle("생체 인증 실패")
-                .setMessage(message)
-                .setPositiveButton(android.R.string.ok, (dialog, which) -> {
-                })
-                .show();
+        if (i == KSException.FAILED_CLOUD_BIO_INVALID_PIN) {
+            new AlertDialog.Builder(requireActivity())
+                    .setTitle("생체 인증 실패")
+                    .setMessage("인증서의 PIN이 변경되어 등록된 생체인증을 해지합니다.\n확인을 누르시면 재등록을 진행합니다.")
+                    .setPositiveButton(android.R.string.ok, (dialog, which) -> {
+                        acquirePassword(true, false, "", pin -> {
+                            showLoading();
+                            bio.addBioCloud(certificates.get(certificateIndex).getId(), new SecureData(pin.getBytes()));
+                        });
+                    })
+                    .setNegativeButton(android.R.string.cancel, null)
+                    .show();
+        } else {
+            new AlertDialog.Builder(requireContext())
+                    .setTitle("생체 인증 실패")
+                    .setMessage(i + " : " + charSequence)
+                    .setPositiveButton(android.R.string.ok, null)
+                    .show();
+        }
     }
 
     @Override
     public void onAuthenticationFailed() {
+        dismissLoading();
         new AlertDialog.Builder(requireContext())
                 .setTitle("생체 인증 실패")
                 .setMessage("onAuthenticationFailed")
-                .setPositiveButton(android.R.string.ok, (dialog, which) -> {
-                })
+                .setPositiveButton(android.R.string.ok, null)
                 .show();
     }
 
     @Override
     public void onAuthenticationSucceeded(Bio.OPERATION operation, int i, ProtectedData protectedData) {
         if (operation == Bio.OPERATION.REGIST) {
+            dismissLoading();
             new AlertDialog.Builder(requireContext())
                     .setTitle("생체 인증 등록 성공")
-                    .setPositiveButton(android.R.string.ok, (dialog, which) -> {
-                    })
+                    .setPositiveButton(android.R.string.ok, null)
+                    .setOnDismissListener(dialog -> getBinding().deleteBio.setVisibility(View.VISIBLE))
                     .show();
         } else {
             cloudSign(operation, protectedData);

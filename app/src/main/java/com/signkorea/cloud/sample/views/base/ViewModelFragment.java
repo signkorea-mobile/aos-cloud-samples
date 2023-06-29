@@ -1,4 +1,4 @@
-package com.signkorea.cloud.sample;
+package com.signkorea.cloud.sample.views.base;
 
 import android.os.Bundle;
 import android.view.View;
@@ -8,6 +8,8 @@ import androidx.annotation.Nullable;
 import androidx.databinding.ViewDataBinding;
 import androidx.lifecycle.ViewModel;
 import androidx.lifecycle.ViewModelProvider;
+
+import com.signkorea.cloud.sample.views.base.DataBindingFragment;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -31,7 +33,6 @@ public abstract class ViewModelFragment<BindingT extends ViewDataBinding, ViewMo
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
-
         Class<ViewModelT> viewModelType = getViewModelClass();
 
         viewModel = new ViewModelProvider(this).get(viewModelType);
@@ -42,6 +43,4 @@ public abstract class ViewModelFragment<BindingT extends ViewDataBinding, ViewMo
         } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException ignored) {
         }
     }
-
-    public abstract void onAuthenticationError(int i, CharSequence charSequence);
 }

@@ -44,12 +44,10 @@ import lombok.val;
 public class CertificateListFragmentViewModel extends ViewModel {
     public enum DataSource {
         remote,
-            local,
-            cache,
-            all
+            local
     }
 
-    private final KSCertificateManagerExt client = new KSCertificateManagerExt();
+    private final KSCertificateManagerExt certMgr = new KSCertificateManagerExt();
 
     @Getter
     private List<KSCertificateExt> certificates = new ArrayList<>();
@@ -58,53 +56,34 @@ public class CertificateListFragmentViewModel extends ViewModel {
     private DataSource dataSource = DataSource.remote;
 
     public CertificateListFragmentViewModel init(Context context, Client.Delegate delegate) throws InvalidLicenseException {
-        client.init(context).setClientDelegate(delegate);
+        certMgr.init(context).setClientDelegate(delegate);
         return this;
     }
 
     public boolean hasValidLicense() {
-        return client != null;
+        return certMgr != null;
     }
 
     @SneakyThrows
-    public void loadData(@NonNull Context context, @NonNull Runnable completion, @NonNull Consumer<Exception> onError, @NonNull Predicate<KSCertificateExt> certificateFilter) {
+    public void loadData(@NonNull Context context, @NonNull Runnable completion, @NonNull Consumer<Exception> onError, Predicate<KSCertificateExt> certificateFilter) {
         if (!hasValidLicense()) {
             return;
         }
 
+        final Predicate<KSCertificateExt> filter = certificateFilter == null ? (cert -> true) : certificateFilter;
         if (dataSource == DataSource.remote) {
-            client.getUserCertificateListCloud((certificates) -> {
-                this.certificates = certificates.stream().filter(certificateFilter).collect(Collectors.toList());
-
-                if (this.certificates.size() == 0) Toast.makeText(context.getApplicationContext(), "클라우드에 저장된 인증서가 없습니다.", Toast.LENGTH_SHORT).show();
+            certMgr.getUserCertificateListCloud((certificates) -> {
+                this.certificates = certificates.stream().filter(filter).collect(Collectors.toList());
                 completion.run();
             }, onError);
-        } else if (dataSource == DataSource.cache){
-            client.getCertificateListInfoCache(false, (certificates, cachedDate) -> {
-                this.certificates = certificates.stream().filter(certificateFilter).collect(Collectors.toList());
-
-                if (this.certificates.size() == 0) Toast.makeText(context.getApplicationContext(), "cache에 저장된 인증서가 없습니다.", Toast.LENGTH_SHORT).show();
-                else Toast.makeText(context.getApplicationContext(), "cache 일자 : " + cachedDate.toString(), Toast.LENGTH_LONG).show();
-
-                completion.run();
-            }, onError);
-//            new Handler(Looper.getMainLooper()).post(completion);
         } else if (dataSource == DataSource.local){
-            client.getUserCertificateListLocal(certificates -> {
-                this.certificates = certificates.stream().filter(certificateFilter).collect(Collectors.toList());
-
-                if (this.certificates.size() == 0) Toast.makeText(context.getApplicationContext(), "로컬에 저장된 인증서가 없습니다.", Toast.LENGTH_SHORT).show();
-
+            certMgr.getUserCertificateListLocal(certificates -> {
+                this.certificates = certificates.stream().filter(filter).collect(Collectors.toList());
                 completion.run();
             }, onError);
 //            new Handler(Looper.getMainLooper()).post(completion);
         } else {
-            client.getUserCertificateListAll((certificates) -> {
-                this.certificates = certificates.stream().filter(certificateFilter).collect(Collectors.toList());
-
-                if (this.certificates.size() == 0) Toast.makeText(context.getApplicationContext(), "클라우드 + 로컬에 저장된 인증서가 없습니다.", Toast.LENGTH_SHORT).show();
-                completion.run();
-            }, onError);
+            assert false : "정의되지 않은 데이터 소스: " + dataSource.name();
         }
     }
 
@@ -139,7 +118,7 @@ public class CertificateListFragmentViewModel extends ViewModel {
             onError.accept(e);
         };
 
-        client.importCertificate(certificate, key, kmCertificate, kmKey, encryptedSecret, encryptedpin, innerCompletion, innerError);
+        certMgr.importCertificate(certificate, key, kmCertificate, kmKey, encryptedSecret, encryptedpin, innerCompletion, innerError);
     }
 
 //    public void getCertificate(
@@ -153,7 +132,7 @@ public class CertificateListFragmentViewModel extends ViewModel {
 //        Consumer<ExportedCertificate[]> innerCompletion = certificates ->
 //                completion.accept(certificates[0]);
 //
-//        client.getCertificate(new String[] { cert.getId() }, pin, innerCompletion, onError);
+//        certMgr.getCertificate(new String[] { cert.getId() }, pin, innerCompletion, onError);
 //    }
 
     public String getCertificateId(int index)
@@ -190,7 +169,7 @@ public class CertificateListFragmentViewModel extends ViewModel {
             onError.accept(e);
         };
 
-        client.exportCertificate(cert.getId(), encryptedpin, encryptedSecret, innerCompletion, innerError);
+        certMgr.exportCertificate(cert.getId(), encryptedpin, encryptedSecret, innerCompletion, innerError);
     }
 
     public void changeCertificatePin(
@@ -221,7 +200,7 @@ public class CertificateListFragmentViewModel extends ViewModel {
             onError.accept(e);
         };
 
-        client.changePwd(cert.getId(), encryptedOldPin, encryptedNewPin, innerCompletion, innerError);
+        certMgr.changePwd(cert.getId(), encryptedOldPin, encryptedNewPin, innerCompletion, innerError);
     }
 
     public void deleteCertificate(
@@ -235,7 +214,7 @@ public class CertificateListFragmentViewModel extends ViewModel {
 
         KSCertificateExt cert = certificates.get(index);
 
-        client.deleteCert(cert.getId(), () -> {
+        certMgr.deleteCert(cert.getId(), () -> {
             certificates.remove(index);
             completion.run();
         }, onError);
@@ -243,7 +222,6 @@ public class CertificateListFragmentViewModel extends ViewModel {
 
     public void updateCertificate (
         int index,
-        boolean withBilling,
         @NonNull String pin,
         @NonNull Consumer<Hashtable<String, Object>> completion)
     {
@@ -262,35 +240,12 @@ public class CertificateListFragmentViewModel extends ViewModel {
 
         new Thread() {
             public void run() {
-                client.update(cert.getId(),
+                certMgr.update(cert.getId(),
                     encryptedPin,
                     true,
                     innerCompletion);
             }
         }.start();
-    }
-
-    public void revokeCertificate (
-        int index,
-        @NonNull Consumer<Hashtable<String, Object>> completion)
-    {
-        if (!hasValidLicense()) {
-            return;
-        }
-
-        ProtectedData encryptedPin = new SecureData("112211".getBytes());
-
-        KSCertificateExt cert = certificates.get(index);
-
-        Consumer<Hashtable<String, Object>> innerCompletion = table -> {
-            encryptedPin.clear();
-            completion.accept(table);
-        };
-
-        client.revoke(cert.getId(),
-            encryptedPin,
-            true,
-            innerCompletion);
     }
 
     public void unlockCertificate(
@@ -304,7 +259,7 @@ public class CertificateListFragmentViewModel extends ViewModel {
 
         val cert = certificates.get(index);
 
-        client.unlockCertificate(cert.getId(), () -> {
+        certMgr.unlockCertificate(cert.getId(), () -> {
             certificates.remove(index);
             completion.run();
         }, onError);

@@ -1,13 +1,18 @@
-package com.signkorea.cloud.sample;
+package com.signkorea.cloud.sample.views.base;
 
 import android.annotation.SuppressLint;
 import android.app.AlertDialog;
+import android.app.Dialog;
 import android.content.DialogInterface;
+import android.graphics.Color;
+import android.graphics.drawable.ColorDrawable;
 import android.os.Bundle;
+import android.util.Log;
 import android.util.Pair;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ProgressBar;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -15,16 +20,17 @@ import androidx.databinding.ViewDataBinding;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.navigation.NavController;
+import androidx.navigation.Navigation;
 
 import com.lumensoft.ks.KSException;
+import com.signkorea.cloud.sample.viewModels.InterFragmentStore;
+import com.yettiesoft.cloud.CancelException;
 import com.yettiesoft.cloud.CloudAPIException;
 import com.yettiesoft.cloud.IncorrectPasscodeException;
 import com.yettiesoft.cloud.InvalidLicenseException;
 import com.yettiesoft.cloud.InvalidPinException;
 import com.yettiesoft.cloud.NonmemberException;
 import com.yettiesoft.cloud.NotCachedCertificateException;
-import com.signkorea.cloud.sample.viewModels.InterFragmentStore;
-import com.yettiesoft.cloud.models.PinFailCount;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -38,8 +44,10 @@ import java.util.function.Function;
 import lombok.val;
 
 public class DataBindingFragment<BindingT extends ViewDataBinding> extends Fragment {
+    protected final String TAG = getClass().getSimpleName();
     private BindingT binding;
     private InterFragmentStore interFragmentStore;
+    private Dialog loadingPopup;
 
     @SuppressWarnings({"unchecked", "ConstantConditions"})
     public Class<BindingT> getBindingClass() {
@@ -80,7 +88,14 @@ public class DataBindingFragment<BindingT extends ViewDataBinding> extends Fragm
         @Nullable ViewGroup container,
         @Nullable Bundle savedInstanceState)
     {
+        Log.e(TAG, "====onCreateView====");
         binding = inflate(inflater, container);
+
+        loadingPopup = new Dialog(requireContext());
+        loadingPopup.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+        loadingPopup.setContentView(new ProgressBar(requireContext()));
+        loadingPopup.setCanceledOnTouchOutside(false);
+        loadingPopup.setOnCancelListener(null);
 
         return binding.getRoot();
     }
@@ -88,7 +103,7 @@ public class DataBindingFragment<BindingT extends ViewDataBinding> extends Fragm
     private int myDestinationId;
 
     protected NavController getNavController() {
-        return ((MainActivity)requireActivity()).getNavController();
+        return Navigation.findNavController(requireView());
     }
 
     @Override
@@ -99,12 +114,21 @@ public class DataBindingFragment<BindingT extends ViewDataBinding> extends Fragm
         myDestinationId = getNavController().getCurrentDestination().getId();
     }
 
+    protected void showLoading() {
+        loadingPopup.show();
+    }
+
+    protected void dismissLoading() {
+        loadingPopup.dismiss();
+    }
+
     @SuppressLint("NonConstantResourceId")
     protected void alertException(@NonNull Exception exception, @Nullable String title, boolean popBackStack, @Nullable Runnable completion) {
+        dismissLoading();
         DialogInterface.OnClickListener onClickListener = (dialog, which) -> {
             getNavController().popBackStack(myDestinationId, popBackStack);
 
-            getInterFragmentStore().remove(MainActivity.MoAuthCancelAction);
+            getInterFragmentStore().remove(InterFragmentStore.MO_ACTION_CANCEL);
 
             if (completion != null) {
                 completion.run();
@@ -189,6 +213,7 @@ public class DataBindingFragment<BindingT extends ViewDataBinding> extends Fragm
             return failCount;
         })
         .is(NonmemberException.class, ignored -> "공동인증 서비스 회원이 아닙니다.")
+        .is(CancelException.class, ignored -> "클라우드 서비스 연결 후 이용해주세요.")
         .is(CloudAPIException.class, exception -> {
             switch (exception.getCode()) {
                 case CloudAPIException.PhoneNumberProofIntervalPolicyViolation:
@@ -219,12 +244,12 @@ public class DataBindingFragment<BindingT extends ViewDataBinding> extends Fragm
                 case CloudAPIException.FDSDetect + 7:
                 case CloudAPIException.FDSDetect + 8:
                 case CloudAPIException.FDSDetect + 9:
-                    return "Cloud에서 이상거래가 탐지되었습니다.";
+                    return String.format("Cloud에서 이상거래가 탐지되었습니다.(%d)", exception.getCode());
                 default:
                     return String.format("서비스 장애가 발생하였습니다.[%d:%s]", exception.getCode(), exception.getMessage());
             }
         })
-        .is(InvalidLicenseException.class, ignored -> "Cloud NPKI 라이센스 정보가 유효하지 않습니다.")
+        .is(InvalidLicenseException.class, ignored -> "클라우드 라이선스 정보가 유효하지 않습니다.")
         .is(InvalidPinException.class, exception -> {
             switch (exception.getCode()) {
                 case InvalidPinException.INVALID_PIN_LENGTH: return "PIN 길이 제한 (6자리)";

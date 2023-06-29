@@ -1,22 +1,15 @@
 package com.signkorea.cloud.sample.viewModels;
 
-import android.annotation.SuppressLint;
 import android.content.Context;
 
 import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 import androidx.databinding.ObservableBoolean;
 import androidx.databinding.ObservableField;
 import androidx.lifecycle.ViewModel;
 
 import com.yettiesoft.cloud.Client;
 import com.yettiesoft.cloud.InvalidLicenseException;
-import com.signkorea.cloud.sample.SimpleSharedPreferences;
 
-import java.text.SimpleDateFormat;
-import java.util.Arrays;
-import java.util.Calendar;
-import java.util.Date;
 import java.util.Optional;
 import java.util.function.Consumer;
 

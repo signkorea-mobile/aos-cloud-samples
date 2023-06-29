@@ -1,6 +1,6 @@
-package com.signkorea.cloud.sample.fragments;
+package com.signkorea.cloud.sample.views.fragments;
 
-import android.app.AlertDialog;
+import android.annotation.SuppressLint;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -10,27 +10,23 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.recyclerview.widget.RecyclerView;
 
-import com.lumensoft.ks.KSException;
-import com.yettiesoft.cloud.Client;
-import com.yettiesoft.cloud.InvalidLicenseException;
-import com.signkorea.cloud.sample.ViewModelFragment;
 import com.signkorea.cloud.sample.databinding.FragmentConnectHistoryBinding;
 import com.signkorea.cloud.sample.databinding.ItemConnectHistoryBinding;
 import com.signkorea.cloud.sample.utils.OnceRunnable;
 import com.signkorea.cloud.sample.viewModels.ConnectHistoryFragmentViewModel;
-
-import org.jetbrains.annotations.NotNull;
+import com.signkorea.cloud.sample.views.base.ViewModelFragment;
+import com.yettiesoft.cloud.Client;
+import com.yettiesoft.cloud.InvalidLicenseException;
 
 import java.text.DateFormat;
 import java.util.Date;
-import java.util.Optional;
-import java.util.function.Consumer;
 
 import lombok.val;
 
 public class ConnectHistoryFragment extends ViewModelFragment<FragmentConnectHistoryBinding, ConnectHistoryFragmentViewModel> {
     private final Adapter adapter = new Adapter();
 
+    @SuppressLint("NotifyDataSetChanged")
     private final OnceRunnable loadData = new OnceRunnable(() -> {
         try {
             getViewModel().init(requireContext().getApplicationContext(), (Client.Delegate)requireActivity());
@@ -38,7 +34,12 @@ public class ConnectHistoryFragment extends ViewModelFragment<FragmentConnectHis
             alertException(exception, true);
         }
 
-        getViewModel().loadData(adapter::notifyDataSetChanged, exception -> alertException(exception, true));
+        showLoading();
+        getViewModel().loadData(() -> {
+                    dismissLoading();
+                    adapter.notifyDataSetChanged();
+                },
+                exception -> alertException(exception, true));
     });
 
     @Override
@@ -46,23 +47,6 @@ public class ConnectHistoryFragment extends ViewModelFragment<FragmentConnectHis
         super.onViewCreated(view, savedInstanceState);
 
         getBinding().recyclerView.setAdapter(adapter);
-    }
-
-    @Override
-    public void onAuthenticationError(int i, CharSequence charSequence) {
-        String message = null;
-        if (i == KSException.FAILED_CLOUD_BIO_INVALID_PIN) {
-            message = charSequence.toString();
-        } else {
-            message = i + " : " + charSequence;
-        }
-
-        new AlertDialog.Builder(requireContext())
-                .setTitle("생체 인증 실패")
-                .setMessage(message)
-                .setPositiveButton(android.R.string.ok, (dialog, which) -> {
-                })
-                .show();
     }
 
     @Override

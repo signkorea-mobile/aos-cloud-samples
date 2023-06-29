@@ -1,7 +1,6 @@
-package com.signkorea.cloud.sample.fragments;
+package com.signkorea.cloud.sample.views.fragments;
 
 import android.annotation.SuppressLint;
-import android.app.AlertDialog;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -11,23 +10,21 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.recyclerview.widget.RecyclerView;
 
-import com.lumensoft.ks.KSException;
+import com.signkorea.cloud.sample.views.base.ViewModelFragment;
+import com.signkorea.cloud.sample.databinding.FragmentCertificateHistoryBinding;
+import com.signkorea.cloud.sample.databinding.ItemCertificateHistoryBinding;
+import com.signkorea.cloud.sample.utils.OnceRunnable;
+import com.signkorea.cloud.sample.viewModels.CertificateHistoryViewModel;
 import com.yettiesoft.cloud.Client;
 import com.yettiesoft.cloud.InvalidLicenseException;
-import com.signkorea.cloud.sample.ViewModelFragment;
-import com.signkorea.cloud.sample.databinding.FragmentUserHistoryBinding;
-import com.signkorea.cloud.sample.databinding.ItemUserHistoryBinding;
-import com.signkorea.cloud.sample.utils.OnceRunnable;
-import com.signkorea.cloud.sample.viewModels.UserHistoryViewModel;
-import com.yettiesoft.cloud.models.UserHistory;
+import com.yettiesoft.cloud.models.CertificateHistory;
 
 import java.text.SimpleDateFormat;
-import java.util.Arrays;
 import java.util.Optional;
 
 import lombok.val;
 
-public class UserHistoryFragment extends ViewModelFragment<FragmentUserHistoryBinding, UserHistoryViewModel> {
+public class CertificateHistoryFragment extends ViewModelFragment<FragmentCertificateHistoryBinding, CertificateHistoryViewModel> {
     private final Adapter adapter = new Adapter();
 
     private final OnceRunnable loadData = new OnceRunnable(() -> {
@@ -37,7 +34,12 @@ public class UserHistoryFragment extends ViewModelFragment<FragmentUserHistoryBi
             alertException(exception, true);
         }
 
-        getViewModel().loadData(adapter::notifyDataSetChanged, exception -> alertException(exception, true));
+        showLoading();
+        getViewModel().loadData(() -> {
+                    dismissLoading();
+                    adapter.notifyDataSetChanged();
+                },
+                exception -> alertException(exception, true));
     });
 
     @Override
@@ -48,23 +50,6 @@ public class UserHistoryFragment extends ViewModelFragment<FragmentUserHistoryBi
     }
 
     @Override
-    public void onAuthenticationError(int i, CharSequence charSequence) {
-        String message = null;
-        if (i == KSException.FAILED_CLOUD_BIO_INVALID_PIN) {
-            message = charSequence.toString();
-        } else {
-            message = i + " : " + charSequence;
-        }
-
-        new AlertDialog.Builder(requireContext())
-                .setTitle("생체 인증 실패")
-                .setMessage(message)
-                .setPositiveButton(android.R.string.ok, (dialog, which) -> {
-                })
-                .show();
-    }
-
-    @Override
     public void onResume() {
         super.onResume();
 
@@ -72,28 +57,30 @@ public class UserHistoryFragment extends ViewModelFragment<FragmentUserHistoryBi
     }
 
     static class ItemView extends RecyclerView.ViewHolder {
-        private final ItemUserHistoryBinding binding;
+        private final ItemCertificateHistoryBinding binding;
 
-        public ItemView(ItemUserHistoryBinding binding) {
+        public ItemView(ItemCertificateHistoryBinding binding) {
             super(binding.getRoot());
 
             this.binding = binding;
         }
 
-        public void bind(@NonNull UserHistory data) {
-            @SuppressLint("SimpleDateFormat")
-            val dt = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(data.getDate());
+        @SuppressLint("SimpleDateFormat")
+        public void bind(@NonNull CertificateHistory data) {
+            val dt = Optional.ofNullable(data.getDate())
+                .map(str -> new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(str))
+                .orElse("");
 
             binding.setDate(dt);
             binding.setDevice(data.getDevice());
             binding.setCustomer(data.getCustomerName());
             binding.setService(data.getServiceName());
             binding.setAction(data.getAction());
-            binding.setResult(data.getResult());
+            binding.setSubjectDn(data.getSubjectDn());
         }
 
         public static ItemView create(ViewGroup parent) {
-            val binding = ItemUserHistoryBinding.inflate(
+            val binding = ItemCertificateHistoryBinding.inflate(
                 LayoutInflater.from(parent.getContext()),
                 parent,
                 false);
@@ -111,12 +98,12 @@ public class UserHistoryFragment extends ViewModelFragment<FragmentUserHistoryBi
 
         @Override
         public void onBindViewHolder(@NonNull ItemView holder, int position) {
-            holder.bind(getViewModel().getUserHistory().get(position));
+            holder.bind(getViewModel().getCertificateHistory().get(position));
         }
 
         @Override
         public int getItemCount() {
-            return getViewModel().getUserHistory().size();
+            return getViewModel().getCertificateHistory().size();
         }
     }
 }

@@ -121,7 +121,7 @@
             android:text="@{service}"
             app:layout_constraintBottom_toTopOf="@id/deviceLabel"
             app:layout_constraintStart_toStartOf="@id/centerX"
-            tools:text="Cloud NPKI"
+            tools:text="클라우드"
             tools:ignore="RtlHardcoded" />
 
         <TextView

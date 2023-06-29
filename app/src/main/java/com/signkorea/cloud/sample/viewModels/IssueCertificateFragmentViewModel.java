@@ -20,39 +20,39 @@ public class IssueCertificateFragmentViewModel extends ViewModel {
     public final ObservableField<String> code = new ObservableField<>();    // 인가 코드
     public final ObservableField<String> pwd = new ObservableField<>();     // 인증서 암호
 
-    KSCertificateManagerExt client = new KSCertificateManagerExt();
+    private KSCertificateManagerExt certMgr = new KSCertificateManagerExt();
 
     public IssueCertificateFragmentViewModel init(Context context) throws InvalidLicenseException {
         refNum.set("");
         code.set("");
         pwd.set("1q2w3e4r!!");
 
-        client.init(context);
+        certMgr.init(context);
         return this;
     }
 
     @SuppressWarnings("UnusedReturnValue")
     public IssueCertificateFragmentViewModel setClientDelegate(Client.Delegate delegate) {
-        client.setClientDelegate(delegate);
+        certMgr.setClientDelegate(delegate);
         return this;
     }
 
-    public void issue(Consumer<Hashtable<String, Object>> completion, boolean withBilling) {
-        client.issue(refNum.get(), code.get(), 256, true, completion);
+    public void issue(Consumer<Hashtable<String, Object>> completion) {
+        certMgr.issue(refNum.get(), code.get(), 256, true, completion);
     }
 
     public boolean savePhone() {
-        return client.saveCertLocal(new SecureData(pwd.get().getBytes()));
+        return certMgr.saveCertLocal(new SecureData(pwd.get().getBytes()));
     }
 
     public void saveCloud(String pin, Runnable completion, Consumer<Exception> onError) {
-        client.saveCloud(new SecureData(pin.getBytes()),
+        certMgr.saveCloud(new SecureData(pin.getBytes()),
             completion, onError);
     }
 
     public String getIssuedCertDN () {
         try {
-            byte[] bCert = client.getIssuedCert();
+            byte[] bCert = certMgr.getIssuedCert();
             KSX509Util cert = new KSX509Util(bCert);
             return cert.getSubjectDn();
         } catch (KSException e) {

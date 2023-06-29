@@ -1,4 +1,4 @@
-package com.signkorea.cloud.sample;
+package com.signkorea.cloud.sample.views.base;
 
 import android.os.Bundle;
 import android.view.LayoutInflater;

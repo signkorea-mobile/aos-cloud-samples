@@ -9,7 +9,7 @@ import androidx.databinding.ObservableBoolean;
 import androidx.databinding.ObservableField;
 import androidx.lifecycle.ViewModel;
 
-import com.signkorea.cloud.sample.SimpleSharedPreferences;
+import com.signkorea.cloud.sample.utils.SimpleSharedPreferences;
 
 import java.text.SimpleDateFormat;
 import java.util.Calendar;

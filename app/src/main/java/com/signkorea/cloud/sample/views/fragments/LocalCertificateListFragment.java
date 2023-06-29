@@ -1,4 +1,4 @@
-package com.signkorea.cloud.sample.fragments;
+package com.signkorea.cloud.sample.views.fragments;
 
 import android.annotation.SuppressLint;
 import android.app.Activity;
@@ -8,12 +8,12 @@ import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.databinding.Observable;
 import androidx.databinding.ObservableField;
-import androidx.navigation.NavDirections;
 import androidx.navigation.Navigation;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -23,19 +23,18 @@ import com.signkorea.certmanager.BillParam;
 import com.signkorea.cloud.Bio;
 import com.signkorea.cloud.KSCertificateExt;
 import com.signkorea.cloud.KSCertificateManagerExt;
-import com.signkorea.securedata.ProtectedData;
-import com.signkorea.securedata.SecureData;
-import com.yettiesoft.cloud.Client;
-import com.yettiesoft.cloud.IncorrectPasscodeException;
 import com.signkorea.cloud.sample.R;
-import com.signkorea.cloud.sample.ViewModelFragment;
+import com.signkorea.cloud.sample.views.base.ViewModelFragment;
 import com.signkorea.cloud.sample.databinding.AlertPasswordBinding;
-import com.signkorea.cloud.sample.databinding.FragmentCertificateListBinding;
+import com.signkorea.cloud.sample.databinding.FragmentLocalCertificateListBinding;
 import com.signkorea.cloud.sample.databinding.ItemCertificateBinding;
 import com.signkorea.cloud.sample.enums.CertificateOperation;
 import com.signkorea.cloud.sample.utils.OnceRunnable;
 import com.signkorea.cloud.sample.viewModels.CertificateListFragmentViewModel;
-import com.yettiesoft.cloud.models.ExportedCertificate;
+import com.signkorea.securedata.ProtectedData;
+import com.signkorea.securedata.SecureData;
+import com.yettiesoft.cloud.Client;
+import com.yettiesoft.cloud.IncorrectPasscodeException;
 
 import java.time.LocalDate;
 import java.time.ZoneId;
@@ -51,16 +50,15 @@ import java.util.stream.Collectors;
 
 import lombok.val;
 
-public class CertificateListFragment
-    extends ViewModelFragment<FragmentCertificateListBinding, CertificateListFragmentViewModel> implements Bio.Callback
+public class LocalCertificateListFragment
+    extends ViewModelFragment<FragmentLocalCertificateListBinding, CertificateListFragmentViewModel> implements Bio.Callback
 {
     private String opp = null;
     private CertificateOperation operation = CertificateOperation.get;
-    private boolean withBilling = false;
 
     private final Adapter adapter = new Adapter();
 
-    private final KSCertificateManagerExt client = new KSCertificateManagerExt();
+    private final KSCertificateManagerExt certMgr = new KSCertificateManagerExt();
     private List<KSCertificateExt> certificates = new ArrayList<>();
 
     private int updatePosition = -1;
@@ -81,64 +79,48 @@ public class CertificateListFragment
             return;
         }
 
-        CertificateListFragmentViewModel.DataSource source;
-
-        if (operation == CertificateOperation.register) {
-            source = CertificateListFragmentViewModel.DataSource.local;
-        } else if (operation == CertificateOperation.cache) {
-            source = CertificateListFragmentViewModel.DataSource.cache;
-        } else if (operation == CertificateOperation.all) {
-            source = CertificateListFragmentViewModel.DataSource.all;
-        } else {
-            source = CertificateListFragmentViewModel.DataSource.remote;
-        }
-
         Consumer<Exception> onError = exception -> alertException(exception, operation.getLabel(), true);
 
         @SuppressLint("NotifyDataSetChanged")
         Runnable completion = () -> {
+            dismissLoading();
             adapter.notifyDataSetChanged();
 
             if(adapter.getItemCount() == 0)
             {
-                if (operation.getLabel() == "인증서 보관") {
-                    new AlertDialog.Builder(requireContext())
-                            .setTitle(operation.getLabel())
-                            .setMessage("클라우드에 저장 가능한 인증서가 없습니다.\n\n인증서 발급 또는 로컬인증서로 인증서 저장이 필요합니다.")
-                            .setPositiveButton(android.R.string.ok, (dialog, which) -> {
-                                Navigation.findNavController(getView()).navigate(R.id.homeFragment);
-                            })
-                            .show();
+                switch(operation) {
+                    case register:
+                        new AlertDialog.Builder(requireContext())
+                                .setTitle(operation.getLabel())
+                                .setMessage("클라우드에 저장 가능한 인증서가 없습니다.\n\n인증서 발급 또는 로컬인증서로 인증서 저장이 필요합니다.")
+                                .setPositiveButton(android.R.string.ok, (dialog, which) -> {
+                                    Navigation.findNavController(getView()).navigate(R.id.homeFragment);
+                                })
+                                .show();
+                        break;
+
+                    case updateLocal:
+                        Toast.makeText(requireContext(), "로컬 저장소에 인증서가 없습니다.", Toast.LENGTH_SHORT).show();
+                        getNavController().popBackStack();
+                        break;
+
+                    default:
+                        assert false: "정의되지 않은 동작: " + operation.name();
+                        break;
                 }
             }
         };
 
-        Predicate<KSCertificateExt> certificateFilter;
-        switch (operation) {
-            case register:
-            case delete: {
-                certificateFilter = certInfo -> true;
-            } break;
-
-            case unlock: {
-                certificateFilter = KSCertificateExt::isLock;
-            } break;
-
-            default: {
-                certificateFilter = certInfo -> true;
-            } break;
-        }
-
-        getViewModel().setDataSource(source).loadData(requireContext(), completion, onError, certificateFilter);
+        showLoading();
+        getViewModel().setDataSource(CertificateListFragmentViewModel.DataSource.local)
+                .loadData(requireContext(), completion, onError, null);
     });
 
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
 
-        operation = CertificateListFragmentArgs.fromBundle(getArguments()).getOperation();
-
-        withBilling = CertificateListFragmentArgs.fromBundle(getArguments()).getBill();
+        operation = LocalCertificateListFragmentArgs.fromBundle(getArguments()).getOperation();
 
         getBinding().recyclerView.setAdapter(adapter);
     }
@@ -146,7 +128,6 @@ public class CertificateListFragment
     @Override
     public void onResume() {
         super.onResume();
-
         loadData.run();
     }
 
@@ -158,71 +139,45 @@ public class CertificateListFragment
             {
                 Consumer<Hashtable<String, Object>> completion = (ret) -> {
                     requireActivity().runOnUiThread(() -> new AlertDialog.Builder(requireActivity())
-                        .setTitle((String)ret.get("CODE"))
-                        .setMessage((String)ret.get("MESSAGE"))
-                        .setPositiveButton(android.R.string.ok, (dialog, which) -> {})
-                        .setNegativeButton(android.R.string.cancel, (dialog, which) -> {})
-                        .show());
+                            .setTitle((String)ret.get("CODE"))
+                            .setMessage((String)ret.get("MESSAGE"))
+                            .setPositiveButton(android.R.string.ok, (dialog, which) -> {})
+                            .setNegativeButton(android.R.string.cancel, (dialog, which) -> {})
+                            .show());
                 };
 
-                getViewModel().updateCertificate(updatePosition, withBilling, updatePin, completion);
+                getViewModel().updateCertificate(updatePosition, updatePin, completion);
             }
             // 수행을 제대로 하지 못한 경우
             else if(resultCode == Activity.RESULT_CANCELED)
             {
-                String reason = "빌링취소 : ";
+                String reason = "갱신 취소 : ";
                 if(data != null)
                     reason += data.getStringExtra(BillActivity.REASON);
 
                 String finalReason = reason;
                 requireActivity().runOnUiThread(() -> new AlertDialog.Builder(requireActivity())
-                    .setTitle(finalReason)
-                    .setPositiveButton(android.R.string.ok, (dialog, which) -> {})
-                    .setNegativeButton(android.R.string.cancel, (dialog, which) -> {})
-                    .show());
+                        .setTitle(finalReason)
+                        .setPositiveButton(android.R.string.ok, (dialog, which) -> {})
+                        .setNegativeButton(android.R.string.cancel, (dialog, which) -> {})
+                        .show());
             }
         }
     }
 
     private void onItemClick(int position) {
         switch (operation) {
-            case register: {
+            case register:
                 registerCertificate(position);
-            } break;
+                break;
 
-            case get:
-            case cache:
-            case all: {
-                getCertificateIndex(position);
-            } break;
-
-            case export: {
-                exportCertificate(position);
-            } break;
-
-            case changePin: {
-                changeCertificatePin(position);
-            } break;
-
-            case delete: {
-                deleteCertificate(position);
-            } break;
-
-            case update: {
+            case updateLocal:
                 updateCertificate(position);
-            } break;
+                break;
 
-            case revoke: {
-                revokeCertificate(position);
-            } break;
-
-            case unlock: {
-                unlockCertificate(position);
-            } break;
-
-            default: {
-                assert false;
-            } break;
+            default:
+                assert false : "정의되지 않은 동작: " + operation.name();
+                break;
         }
     }
 
@@ -239,11 +194,11 @@ public class CertificateListFragment
         binding.setPinMode(pinMode);
 
         AlertDialog alert = new AlertDialog.Builder(requireContext())
-            .setTitle(operation.getLabel())
-            .setView(binding.getRoot())
-            .setPositiveButton(android.R.string.ok, (dialog, which) -> completion.accept(pwd1.get()))
-            .setNegativeButton(android.R.string.cancel, (dialog, which) -> {})
-            .create();
+                .setTitle(operation.getLabel())
+                .setView(binding.getRoot())
+                .setPositiveButton(android.R.string.ok, (dialog, which) -> completion.accept(pwd1.get()))
+                .setNegativeButton(android.R.string.cancel, (dialog, which) -> {})
+                .create();
 
         if (confirmPassword) {
             Observable.OnPropertyChangedCallback onPwdChanged = new Observable.OnPropertyChangedCallback() {
@@ -276,6 +231,7 @@ public class CertificateListFragment
 
     private void registerCertificate(int position) {
         Consumer<KSCertificateExt> completion = cert -> {
+            dismissLoading();
             dn = cert.getSubject();
 
             new AlertDialog.Builder(requireContext())
@@ -283,11 +239,10 @@ public class CertificateListFragment
                     .setMessage(cert.getSubject() + "\n\n추가로 생체정보 등록을 진행 하시겠습니까?")
                     .setPositiveButton(android.R.string.ok, (dialog, which) -> {
                         try {
-
-                            bio = new Bio(requireActivity(), this.client);
+                            bio = new Bio(requireActivity(), this.certMgr);
                             bio.setCallback(this);
                             Predicate<KSCertificateExt> certificateFilter = certInfo -> true;
-                            client.getUserCertificateListCloud(certificates -> {
+                            certMgr.getUserCertificateListCloud(certificates -> {
                                 this.certificates = certificates.stream().filter(certificateFilter).collect(Collectors.toList());
                                 for (int i = 0; i < this.certificates.size(); i++) {
                                     if (this.certificates.get(i).getSubject().equals(dn)) {
@@ -305,13 +260,11 @@ public class CertificateListFragment
                                         }
                                     }
                                 }
-                            },e -> {
+                            }, e -> {
                                 new AlertDialog.Builder(requireContext())
-                                        .setTitle("생체인증 등록 실패")
+                                        .setTitle("인증서 목록 로딩 실패")
                                         .setMessage(e.toString())
-                                        .setPositiveButton(android.R.string.ok, (dialog2, which2) -> {
-                                            Navigation.findNavController(getView()).navigate(R.id.homeFragment);
-                                        })
+                                        .setPositiveButton(android.R.string.ok, null)
                                         .show();
                                 });
                         }
@@ -320,21 +273,16 @@ public class CertificateListFragment
                             new AlertDialog.Builder(requireContext())
                                     .setTitle("생체인증 등록 실패")
                                     .setMessage(e.toString())
-                                    .setPositiveButton(android.R.string.ok, (dialog2, which2) -> {
-                                        Navigation.findNavController(getView()).navigate(R.id.homeFragment);
-                                    })
+                                    .setPositiveButton(android.R.string.ok, null)
                                     .show();
                         }
                     })
-                    .setNegativeButton(android.R.string.cancel, (dialog, which) -> {
-                        Navigation.findNavController(getView()).navigate(R.id.homeFragment);
-                    })
+                    .setNegativeButton(android.R.string.cancel, null)
                     .show();
         };
 
         Consumer<Exception> onError = exception -> {
-            final String errorMessage;
-
+            dismissLoading();
             if (exception instanceof IncorrectPasscodeException) {
                 new AlertDialog.Builder(requireContext())
                     .setTitle(operation.getLabel())
@@ -349,6 +297,7 @@ public class CertificateListFragment
         BiConsumer<String, String> onPasswordAcquired = (password, pin) -> {
             val cert = (KSCertificateExt)getViewModel().getCertificates().get(position);
 
+            showLoading();
             getViewModel().registerCertificate(
                 cert.getCertificate(),
                 cert.getKey(),
@@ -370,75 +319,9 @@ public class CertificateListFragment
         super.alertException(exception, operation.getLabel());
     }
 
-    private void getCertificateIndex(int position) {
-        NavDirections directions = CertificateListFragmentDirections.actionCertificateListFragmentToSignListFragment()
-            .setCertificateIndex(position)
-            .setOperation(operation);
-        Navigation.findNavController(getView()).navigate(directions);
-    }
-
-    private void exportCertificate(int position) {
-        BiConsumer<String, String> onPasswordAcquired = (pin, secret) -> {
-            BiConsumer<ExportedCertificate, Boolean> completion = (certificate, fromCache) -> {
-                val title = operation.getLabel() + " 성공 ";
-                val source = fromCache ? "[Cached]" : "[Downloaded]";
-
-                new AlertDialog.Builder(requireContext())
-                    .setTitle(title + source)
-                    .setMessage(certificate.getId())
-                    .setPositiveButton(android.R.string.ok, (dialog, which) -> {})
-                    .show();
-            };
-
-            getViewModel().exportCertificate(position, pin, secret, completion, this::alertException);
-        };
-
-        acquirePassword(true, false, "", pin ->
-            acquirePassword(false, true, "", secret ->
-                onPasswordAcquired.accept(pin, secret)));
-    }
-
-    private void changeCertificatePin(int position) {
-        BiConsumer<String, String> onPinAcquired = (oldPin, newPin) -> {
-            Runnable completion = () -> new AlertDialog.Builder(requireContext())
-                .setTitle(operation.getLabel() + " 성공")
-                .setPositiveButton(android.R.string.ok, (dialog, which) -> {})
-                .show();
-
-            getViewModel().changeCertificatePin(position, oldPin, newPin, completion, this::alertException);
-        };
-
-        acquirePassword(true, false, "", oldPin ->
-            acquirePassword(true, true, "", newPin ->
-                onPinAcquired.accept(oldPin, newPin)));
-    }
-
-    private void deleteCertificate(int position) {
-        Runnable completion = () ->
-        {
-            adapter.notifyItemRemoved(position);
-            HomeFragment.getInstance().setindex(-1);
-        };
-
-        Consumer<Exception> onError = exception -> new AlertDialog.Builder(requireContext())
-            .setTitle(operation.getLabel() + " 실패")
-            .setMessage(exception.toString())
-            .setPositiveButton(android.R.string.ok, (dialog, which) -> {})
-            .show();
-
-        val cert = getViewModel().getCertificates().get(position);
-
-        new AlertDialog.Builder(requireActivity())
-            .setMessage(String.format("'%s' 인증서를 삭제합니다.", cert.getSubject()))
-            .setPositiveButton(android.R.string.ok, (dialog, which) ->
-                getViewModel().deleteCertificate(position, completion, onError)
-            )
-            .setNegativeButton(android.R.string.cancel, (dialog, which) -> {})
-            .show();
-    }
-
     private void updateCertificate(int position) {
         Consumer<Hashtable<String, Object>> completion = (ret) -> {
+            dismissLoading();
             if (((String)ret.get("CODE")).equalsIgnoreCase("-4100") &&
                 ((String)ret.get("MESSAGE")).startsWith("SKM_CA_0002")) {
 
@@ -459,62 +342,33 @@ public class CertificateListFragment
                     message = (String) ret.get("MESSAGE");
                 }
 
-
-
                 requireActivity().runOnUiThread(() -> new AlertDialog.Builder(requireActivity())
                     .setTitle(code)
                     .setMessage(message)
-                    .setPositiveButton(android.R.string.ok, (dialog, which) -> {
-                    })
-                    .setNegativeButton(android.R.string.cancel, (dialog, which) -> {
-                    })
+                    .setPositiveButton(android.R.string.ok, null)
                     .show());
             }
         };
 
         Consumer<String> onPasswordAcquired = (pin) -> {
+            showLoading();
+
             updatePosition = position;
             updatePin = pin;
-            getViewModel().updateCertificate(position, withBilling, pin, completion);
+            getViewModel().updateCertificate(position, pin, completion);
         };
 
         acquirePassword(true, false, "", pin ->
             onPasswordAcquired.accept(pin));
     }
 
-    private void revokeCertificate(int position) {
-        Consumer<Hashtable<String, Object>> completion = (ret) -> {
-            new AlertDialog.Builder(requireActivity())
-                .setTitle((String)ret.get("CODE"))
-                .setMessage((String)ret.get("MESSAGE"))
-                .setPositiveButton(android.R.string.ok, (dialog, which) -> {})
-                .setNegativeButton(android.R.string.cancel, (dialog, which) -> {})
-                .show();
-        };
-
-        getViewModel().revokeCertificate(position, completion);
-    }
-
-    private void unlockCertificate(int position) {
-        Runnable completion = () -> new AlertDialog.Builder(requireContext())
-            .setMessage("인증서 잠금을 해제 하였습니다.")
-            .setPositiveButton(android.R.string.ok, ((dialog, which) -> {
-                adapter.notifyItemRemoved(position);
-            }))
-            .show();
-
-        getViewModel().unlockCertificate(position, completion, this::alertException);
-    }
-
     private void showBillingActivity(String serial) {
         Intent intent = new Intent(this.getContext(), BillActivity.class);
-        intent.putExtra(BillActivity.IS_MAIN_SERVER, false);
+        intent.putExtra(BillActivity.IS_MAIN_SERVER, false); // 메인 서버인 경우에는  true로 설정
         intent.putExtra(BillActivity.OPERATION, BillActivity.UPDATE);
-        //intent.putExtra(BillActivity.SERIAL, serial);
-        // billing 시 mSerial을 가공 후 전달해 주는 로직으로 변경
         intent.putExtra(BillActivity.SERIAL, BillParam.makeBillParam(serial));
-        // opp code값이 result message를 통해 넘어온 경우에 처리되어야 함
-        if (opp != null) intent.putExtra(BillActivity.OPP, opp);
+        if (opp != null)
+            intent.putExtra(BillActivity.OPP, opp);
         startActivityForResult(intent, BillActivity.ID);
     }
 
@@ -522,7 +376,7 @@ public class CertificateListFragment
         @NonNull
         @Override
         public ItemView onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-            CertificateListFragment.ItemView itemView = ItemView.create(parent);
+            LocalCertificateListFragment.ItemView itemView = ItemView.create(parent);
 
             itemView.binding.getRoot().setOnClickListener(view -> {
                 int pos = itemView.getAdapterPosition();
@@ -626,9 +480,8 @@ public class CertificateListFragment
                     })
                     .show();
         } else {
-            //cloudSign(operation, protectedData);
-            //getNavController().navigate(HomeFragment.getInstance().getfid());
-            Navigation.findNavController(getView()).navigate(R.id.homeFragment);
+            // 로컬 인증서 화면에서는 등록 처리만 구현되어 있습니다.
+            assert false : "정의되지 않은 생체 인증 operation: " + operation.name();
         }
     }
 }

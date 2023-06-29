@@ -1,4 +1,4 @@
-package com.signkorea.cloud.sample;
+package com.signkorea.cloud.sample.utils;
 
 import android.annotation.SuppressLint;
 import android.content.Context;

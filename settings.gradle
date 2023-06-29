@@ -1,2 +1,2 @@
-rootProject.name = "SignKorea Cloud-Sample"
+rootProject.name = "SignKorea Cloud Sample"
 include ':app'

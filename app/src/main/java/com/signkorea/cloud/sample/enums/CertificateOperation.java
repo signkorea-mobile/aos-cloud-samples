@@ -7,11 +7,9 @@ public enum CertificateOperation {
     export,
     changePin,
     issue,
-    update,
-    revoke,
-    unlock,
-    cache,
-    all;
+    updateCloud,
+    updateLocal,
+    unlock;
 
     public String getLabel() {
         switch (this) {
@@ -25,14 +23,10 @@ public enum CertificateOperation {
                 return "인증서 PIN 변경";
             case issue:
                 return "인증서 발급";
-            case update:
-                return "인증서 갱신";
-            case revoke:
-                return "인증서 폐기";
-            case all:
-                return "cloud + local sign";
-            case cache:
-                return "cache sign";
+            case updateLocal:
+                return "인증서 갱신(로컬)";
+            case updateCloud:
+                return "인증서 갱신(클라우드)";
             case unlock:
                 return "인증서 잠금 해제";
             default:
