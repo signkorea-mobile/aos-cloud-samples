@@ -2,24 +2,19 @@ package com.signkorea.cloud.sample.views.fragments;
 
 import android.app.Activity;
 import android.app.AlertDialog;
-import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
-import android.view.LayoutInflater;
 import android.view.View;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.databinding.Observable;
-import androidx.databinding.ObservableField;
 
 import com.signkorea.certmanager.BillActivity;
 import com.signkorea.certmanager.BillParam;
-import com.signkorea.cloud.sample.views.base.ViewModelFragment;
-import com.signkorea.cloud.sample.databinding.AlertPasswordBinding;
 import com.signkorea.cloud.sample.databinding.FragmentIssueCertificateBinding;
 import com.signkorea.cloud.sample.enums.CertificateOperation;
 import com.signkorea.cloud.sample.viewModels.IssueCertificateFragmentViewModel;
+import com.signkorea.cloud.sample.views.base.ViewModelFragment;
 import com.yettiesoft.cloud.Client;
 import com.yettiesoft.cloud.InvalidLicenseException;
 import com.yettiesoft.cloud.InvalidPinException;
@@ -38,8 +33,9 @@ public class IssueCertificateFragment extends ViewModelFragment<FragmentIssueCer
 
         try {
             getViewModel()
-                .init(requireContext().getApplicationContext())
-                .setClientDelegate((Client.Delegate) requireActivity());
+                .init(requireContext().getApplicationContext(),
+                        (Client.Delegate) requireActivity(),
+                        this);
         } catch (InvalidLicenseException e) {
             e.printStackTrace();
         }
@@ -49,6 +45,7 @@ public class IssueCertificateFragment extends ViewModelFragment<FragmentIssueCer
         getBinding().saveCloud.setOnClickListener(view1 -> saveCloud());
     }
 
+    // issue() 처리 중 BillActivity 화면 전환 후 결과 처리
     @Override
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
         if(requestCode == BillActivity.ID) {
@@ -57,11 +54,12 @@ public class IssueCertificateFragment extends ViewModelFragment<FragmentIssueCer
             {
                 Consumer<Hashtable<String, Object>> completion = (ret) -> {
                     requireActivity().runOnUiThread(() -> new AlertDialog.Builder(requireActivity())
-                        .setTitle((String)ret.get("CODE"))
-                        .setMessage((String)ret.get("MESSAGE"))
-                        .setPositiveButton(android.R.string.ok, (dialog, which) -> {})
-                        .setNegativeButton(android.R.string.cancel, (dialog, which) -> {})
-                        .show());
+                            .setTitle((String)ret.get("CODE"))
+                            .setMessage((String)ret.get("MESSAGE"))
+                            .setPositiveButton(android.R.string.ok, null)
+                            .setNegativeButton(android.R.string.cancel, null)
+                            .setOnDismissListener(dialog -> dismissLoading())
+                            .show());
                 };
                 getViewModel().issue(completion);
             }
@@ -84,12 +82,9 @@ public class IssueCertificateFragment extends ViewModelFragment<FragmentIssueCer
 
     private void issue() {
         Consumer<Hashtable<String, Object>> completion = (ret) -> {
-            dismissLoading();
-
             if (((String)ret.get("CODE")).equalsIgnoreCase("-4100") &&
                 ((String)ret.get("MESSAGE")).startsWith("SKM_CA_0001")) {
 
-                // cloud 용 opp code 값 setting       TODO 어디 들어가고 어디 빠질지
                 if(((String)ret.get("MESSAGE")).contains("SK_MC"))
                     opp = "SK_MC";
 
@@ -97,16 +92,18 @@ public class IssueCertificateFragment extends ViewModelFragment<FragmentIssueCer
             } else {
                 requireActivity().runOnUiThread(() -> new AlertDialog.Builder(requireActivity())
                     .setTitle((String)ret.get("CODE"))
-                    .setMessage((String)ret.get("MESSAGE") + " - " + getViewModel().getIssuedCertDN())
+                    .setMessage(ret.get("MESSAGE") + " - " + getViewModel().getIssuedCertDN())
                     .setPositiveButton(android.R.string.ok, null)
                     .setNegativeButton(android.R.string.cancel, null)
+                    .setOnDismissListener(dialog -> {
+                        dismissLoading();
+                    })
                     .show());
             }
         };
 
         showLoading();
         getViewModel().issue(completion);
-
     }
 
     private void savePhone () {
@@ -163,54 +160,6 @@ public class IssueCertificateFragment extends ViewModelFragment<FragmentIssueCer
         intent.putExtra(BillActivity.REFERENCE, BillParam.makeBillParam(reference));
         if (opp != null)
             intent.putExtra(BillActivity.OPP, opp);
-        startActivityForResult(intent, BillActivity.ID); // 결과는 onActivityResult에서 확인
-    }
-
-    private void acquirePassword(Context context, String title, boolean pinMode, boolean confirmPassword, String initialPassword, Consumer<String> completion) {
-        ObservableField<String> pwd1 = new ObservableField<String>();
-        ObservableField<String> pwd2 = new ObservableField<String>();
-
-        AlertPasswordBinding binding =
-            AlertPasswordBinding.inflate(LayoutInflater.from(context));
-
-        binding.setPassword1(pwd1);
-        binding.setPassword2(pwd2);
-        binding.setConfirmPassword(confirmPassword);
-        binding.setPinMode(pinMode);
-
-        AlertDialog alert = new AlertDialog.Builder(context)
-            .setTitle(title)
-            .setView(binding.getRoot())
-            .setPositiveButton(android.R.string.ok, (dialog, which) -> completion.accept(pwd1.get()))
-            .setNegativeButton(android.R.string.cancel, (dialog, which) -> {})
-            .create();
-
-        if (confirmPassword) {
-            Observable.OnPropertyChangedCallback onPwdChanged = new Observable.OnPropertyChangedCallback() {
-                @Override
-                public void onPropertyChanged(Observable sender, int propertyId) {
-                    String pwd = pwd1.get();
-                    boolean ok = pwd != null && pwd.length() > 0 && pwd.equals(pwd2.get());
-                    alert.getButton(AlertDialog.BUTTON_POSITIVE).setEnabled(ok);
-                }
-            };
-            pwd1.addOnPropertyChangedCallback(onPwdChanged);
-            pwd2.addOnPropertyChangedCallback(onPwdChanged);
-        } else {
-            Observable.OnPropertyChangedCallback onPwdChanged = new Observable.OnPropertyChangedCallback() {
-                @Override
-                public void onPropertyChanged(Observable sender, int propertyId) {
-                    String pwd = pwd1.get();
-                    boolean ok = pwd != null && pwd.length() > 0;
-                    alert.getButton(AlertDialog.BUTTON_POSITIVE).setEnabled(ok);
-                }
-            };
-            pwd1.addOnPropertyChangedCallback(onPwdChanged);
-        }
-
-        alert.show();
-
-        pwd1.set(initialPassword);
-        pwd2.set(initialPassword);
+        startActivityForResult(intent, BillActivity.ID); // 결과는 onActivityResult 에서 확인
     }
 }

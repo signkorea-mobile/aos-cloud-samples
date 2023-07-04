@@ -95,7 +95,7 @@
             android:text="@{customer}"
             app:layout_constraintBottom_toTopOf="@id/serviceLabel"
             app:layout_constraintStart_toStartOf="@id/centerX"
-            tools:text="yettiesoft" />
+            tools:text="SignKorea" />
 
         <TextView
             android:layout_width="wrap_content"

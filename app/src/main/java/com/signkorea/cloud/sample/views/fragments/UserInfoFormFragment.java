@@ -9,11 +9,11 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.signkorea.cloud.sample.R;
-import com.signkorea.cloud.sample.utils.SimpleSharedPreferences;
-import com.signkorea.cloud.sample.views.base.ViewModelFragment;
 import com.signkorea.cloud.sample.databinding.FragmentUserInfoFormBinding;
+import com.signkorea.cloud.sample.utils.SimpleSharedPreferences;
 import com.signkorea.cloud.sample.viewModels.InterFragmentStore;
 import com.signkorea.cloud.sample.viewModels.UserInfoFormFragmentViewModel;
+import com.signkorea.cloud.sample.views.base.ViewModelFragment;
 import com.yettiesoft.cloud.Client;
 
 import java.text.ParseException;
@@ -38,9 +38,10 @@ public class UserInfoFormFragment extends ViewModelFragment<FragmentUserInfoForm
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
 
+        dismissLoading();
         getViewModel().init(requireContext());
 
-        Client.UserInfoAcceptor userInfoAcceptor = getInterFragmentStore().accept(
+        Client.UserInfoAcceptor userInfoAcceptor = getInterFragmentStore().remove(
                 R.id.userInfoFormFragment,
                 InterFragmentStore.MO_ACTION_CONFIRM);
 
@@ -98,13 +99,13 @@ public class UserInfoFormFragment extends ViewModelFragment<FragmentUserInfoForm
     }
 
     private void cancel() {
-        getInterFragmentStore().<Runnable>accept(R.id.userInfoFormFragment, InterFragmentStore.MO_API_CANCEL).run();
-        getInterFragmentStore().<Runnable>peek(InterFragmentStore.MO_ACTION_CANCEL).run();
+        getInterFragmentStore().<Runnable>remove(R.id.userInfoFormFragment, InterFragmentStore.MO_API_CANCEL).run();
+        getInterFragmentStore().<Runnable>remove(InterFragmentStore.MO_ACTION_CANCEL).run();
     }
 
     @Override
     public void onDestroy() {
         super.onDestroy();
-        getInterFragmentStore().accept(R.id.userInfoFormFragment, InterFragmentStore.MO_API_CANCEL);
+        getInterFragmentStore().remove(R.id.userInfoFormFragment, InterFragmentStore.MO_API_CANCEL);
     }
 }

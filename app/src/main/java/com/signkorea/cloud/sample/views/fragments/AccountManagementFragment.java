@@ -3,16 +3,17 @@ package com.signkorea.cloud.sample.views.fragments;
 import android.app.AlertDialog;
 import android.os.Bundle;
 import android.view.View;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.navigation.NavDirections;
 import androidx.navigation.Navigation;
 
-import com.signkorea.cloud.sample.views.base.DataBindingFragment;
 import com.signkorea.cloud.sample.databinding.FragmentAccountManagementBinding;
 import com.signkorea.cloud.sample.utils.OnceRunnable;
 import com.signkorea.cloud.sample.viewModels.InterFragmentStore;
+import com.signkorea.cloud.sample.views.base.DataBindingFragment;
 import com.yettiesoft.cloud.Client;
 import com.yettiesoft.cloud.InvalidLicenseException;
 import com.yettiesoft.cloud.NonmemberException;
@@ -22,8 +23,6 @@ import org.jetbrains.annotations.NotNull;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Consumer;
-
-import lombok.val;
 
 public class AccountManagementFragment extends DataBindingFragment<FragmentAccountManagementBinding> {
     private Client client = new Client();
@@ -90,7 +89,7 @@ public class AccountManagementFragment extends DataBindingFragment<FragmentAccou
                         .setTitle("회원 탈퇴 실패")
                         .setMessage("공동 인증 서비스 회원이 아닙니다.")
                         .setPositiveButton(android.R.string.ok, (dialog, which) -> Optional
-                                .ofNullable(getInterFragmentStore().<Runnable>peek(InterFragmentStore.MO_ACTION_CANCEL))
+                                .ofNullable(getInterFragmentStore().<Runnable>remove(InterFragmentStore.MO_ACTION_CANCEL))
                                 .ifPresent(Runnable::run)
                         )
                         .show();
@@ -116,38 +115,30 @@ public class AccountManagementFragment extends DataBindingFragment<FragmentAccou
                 .show();
     }
 
-    private void fetchUserInfo(View view) {
-        Consumer<Exception> onError = exception -> alertException(exception, "사용자 정보 조회");
-
-        Objects.requireNonNull(client).getUserInfo((userInfo) -> {
-            val message = Optional.ofNullable(userInfo)
-                .map(ui -> String.format("이름 : %s\n전화번호 : %s", ui.getName(), ui.getPhoneNumber()))
-                .orElse("서버와 연결되어 있지 않습니다.");
-
-            new AlertDialog.Builder(requireContext())
-                .setTitle("사용자 정보 조회")
-                .setMessage(message)
-                .setPositiveButton(android.R.string.ok, null)
-                .show();
-        }, onError);
-    }
-
     private void onDisconnect(View view) {
         if (client == null) {
             return;
         }
 
-        Runnable completion = () -> new AlertDialog.Builder(requireContext())
-                .setMessage("연결 끊기 성공")
-                .setPositiveButton(android.R.string.ok, (dialog, which) -> {})
-                .show();
-
         Consumer<Exception> onError = exception -> alertException(exception, "연결 끊기");
 
-        new AlertDialog.Builder(requireContext())
-                .setMessage("연결을 끊습니다.")
-                .setPositiveButton(android.R.string.ok, (dialog, which) -> client.disconnect(completion, onError))
-                .setNegativeButton(android.R.string.cancel, null)
-                .show();
+        Objects.requireNonNull(client).checkConnect(connected -> {
+            if(connected) {
+                Runnable completion = () -> new AlertDialog.Builder(requireContext())
+                        .setMessage("연결 끊기 성공")
+                        .setPositiveButton(android.R.string.ok, (dialog, which) -> {
+                        })
+                        .show();
+
+                new AlertDialog.Builder(requireContext())
+                        .setMessage("클라우드 서비스 연결을 끊습니다.")
+                        .setPositiveButton(android.R.string.ok, (dialog, which) -> client.disconnect(completion, onError))
+                        .setNegativeButton(android.R.string.cancel, null)
+                        .show();
+            }
+            else {
+                requireActivity().runOnUiThread(() -> Toast.makeText(requireContext(), "클라우드 서비스에 연결되어 있지 않습니다.", Toast.LENGTH_SHORT).show());
+            }
+        }, onError);
     }
 }

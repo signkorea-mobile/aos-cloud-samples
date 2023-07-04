@@ -12,8 +12,6 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.databinding.Observable;
-import androidx.databinding.ObservableField;
 import androidx.navigation.NavDirections;
 import androidx.navigation.Navigation;
 import androidx.recyclerview.widget.RecyclerView;
@@ -21,14 +19,14 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.signkorea.certmanager.BillActivity;
 import com.signkorea.certmanager.BillParam;
 import com.signkorea.cloud.KSCertificateExt;
-import com.signkorea.cloud.sample.views.base.ViewModelFragment;
-import com.signkorea.cloud.sample.databinding.AlertPasswordBinding;
 import com.signkorea.cloud.sample.databinding.FragmentCloudCertificateListBinding;
 import com.signkorea.cloud.sample.databinding.ItemCertificateBinding;
 import com.signkorea.cloud.sample.enums.CertificateOperation;
 import com.signkorea.cloud.sample.enums.SignMenuType;
 import com.signkorea.cloud.sample.utils.OnceRunnable;
-import com.signkorea.cloud.sample.viewModels.CloudCertificateListFragmentViewModel;
+import com.signkorea.cloud.sample.viewModels.CertificateListFragmentViewModel;
+import com.signkorea.cloud.sample.viewModels.InterFragmentStore;
+import com.signkorea.cloud.sample.views.base.ViewModelFragment;
 import com.yettiesoft.cloud.Client;
 import com.yettiesoft.cloud.models.ExportedCertificate;
 
@@ -43,7 +41,7 @@ import java.util.function.Predicate;
 
 import lombok.val;
 
-public class CloudCertificateListFragment extends ViewModelFragment<FragmentCloudCertificateListBinding, CloudCertificateListFragmentViewModel> {
+public class CloudCertificateListFragment extends ViewModelFragment<FragmentCloudCertificateListBinding, CertificateListFragmentViewModel> {
 
     private String opp = null;
     private CertificateOperation operation = CertificateOperation.get;
@@ -60,7 +58,9 @@ public class CloudCertificateListFragment extends ViewModelFragment<FragmentClou
 
     private final OnceRunnable loadData = new OnceRunnable(() -> {
         try {
-            getViewModel().init(requireContext().getApplicationContext(), (Client.Delegate)requireActivity());
+            getViewModel().init(requireContext().getApplicationContext(),
+                    (Client.Delegate)requireActivity(),
+                    this);
         } catch (Exception exception) {
             alertException(exception, operation.getLabel(), true);
             return;
@@ -87,11 +87,11 @@ public class CloudCertificateListFragment extends ViewModelFragment<FragmentClou
         if(operation == CertificateOperation.unlock)
             certificateFilter = KSCertificateExt::isLock;
         else
-            certificateFilter = certInfo -> true;
+            certificateFilter = null;
 
         showLoading();
-        getViewModel().setDataSource(CloudCertificateListFragmentViewModel.DataSource.remote)
-                .loadData(requireContext(), completion, onError, certificateFilter);
+        getViewModel().setDataSource(CertificateListFragmentViewModel.DataSource.remote)
+                .loadData(completion, onError, certificateFilter);
     });
 
     @Override
@@ -119,38 +119,25 @@ public class CloudCertificateListFragment extends ViewModelFragment<FragmentClou
         loadData.run();
     }
 
+    // 클라우드 내 인증서 update() 처리 중 BillActivity 화면 전환 후 결과 처리
     @Override
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
         if(requestCode == BillActivity.ID) {
-            // 수행을 제대로 한 경우
-            if(resultCode == Activity.RESULT_OK && data != null)
-            {
-                Consumer<Hashtable<String, Object>> completion = (ret) -> {
-                    requireActivity().runOnUiThread(() -> new AlertDialog.Builder(requireActivity())
-                            .setTitle((String)ret.get("CODE"))
-                            .setMessage((String)ret.get("MESSAGE"))
-                            .setPositiveButton(android.R.string.ok, (dialog, which) -> {})
-                            .setNegativeButton(android.R.string.cancel, (dialog, which) -> {})
-                            .show());
-                };
-
-                getViewModel().updateCertificate(updatePosition, updatePin, completion);
+            String useAction;
+            String discardAction;
+            if(resultCode == Activity.RESULT_OK){
+                useAction = InterFragmentStore.BILL_ACTION_COMPLETE;
+                discardAction = InterFragmentStore.BILL_ACTION_CANCEL;
             }
-            // 수행을 제대로 하지 못한 경우
-            else if(resultCode == Activity.RESULT_CANCELED)
-            {
-                String reason = "갱신 취소 : ";
-                if(data != null)
-                    reason += data.getStringExtra(BillActivity.REASON);
-
-                String finalReason = reason;
-                requireActivity().runOnUiThread(() -> new AlertDialog.Builder(requireActivity())
-                        .setTitle(finalReason)
-                        .setPositiveButton(android.R.string.ok, (dialog, which) -> {})
-                        .setNegativeButton(android.R.string.cancel, (dialog, which) -> {})
-                        .show());
+            else {
+                useAction = InterFragmentStore.BILL_ACTION_CANCEL;
+                discardAction = InterFragmentStore.BILL_ACTION_COMPLETE;
             }
+            getInterFragmentStore().<Runnable>remove(useAction).run();
+            getInterFragmentStore().remove(discardAction);
         }
+        else
+            super.onActivityResult(requestCode, resultCode, data);
     }
 
     private void onItemClick(int position) {
@@ -185,54 +172,6 @@ public class CloudCertificateListFragment extends ViewModelFragment<FragmentClou
         }
     }
 
-    private void acquirePassword(boolean pinMode, boolean confirmPassword, String initialPassword, Consumer<String> completion) {
-        ObservableField<String> pwd1 = new ObservableField<String>();
-        ObservableField<String> pwd2 = new ObservableField<String>();
-
-        AlertPasswordBinding binding =
-                AlertPasswordBinding.inflate(LayoutInflater.from(requireContext()));
-
-        binding.setPassword1(pwd1);
-        binding.setPassword2(pwd2);
-        binding.setConfirmPassword(confirmPassword);
-        binding.setPinMode(pinMode);
-
-        AlertDialog alert = new AlertDialog.Builder(requireContext())
-                .setTitle(operation.getLabel())
-                .setView(binding.getRoot())
-                .setPositiveButton(android.R.string.ok, (dialog, which) -> completion.accept(pwd1.get()))
-                .setNegativeButton(android.R.string.cancel, (dialog, which) -> {})
-                .create();
-
-        if (confirmPassword) {
-            Observable.OnPropertyChangedCallback onPwdChanged = new Observable.OnPropertyChangedCallback() {
-                @Override
-                public void onPropertyChanged(Observable sender, int propertyId) {
-                    String pwd = pwd1.get();
-                    boolean ok = pwd != null && pwd.length() > 0 && pwd.equals(pwd2.get());
-                    alert.getButton(AlertDialog.BUTTON_POSITIVE).setEnabled(ok);
-                }
-            };
-            pwd1.addOnPropertyChangedCallback(onPwdChanged);
-            pwd2.addOnPropertyChangedCallback(onPwdChanged);
-        } else {
-            Observable.OnPropertyChangedCallback onPwdChanged = new Observable.OnPropertyChangedCallback() {
-                @Override
-                public void onPropertyChanged(Observable sender, int propertyId) {
-                    String pwd = pwd1.get();
-                    boolean ok = pwd != null && pwd.length() > 0;
-                    alert.getButton(AlertDialog.BUTTON_POSITIVE).setEnabled(ok);
-                }
-            };
-            pwd1.addOnPropertyChangedCallback(onPwdChanged);
-        }
-
-        alert.show();
-
-        pwd1.set(initialPassword);
-        pwd2.set(initialPassword);
-    }
-
     @Override
     protected void alertException(@NonNull Exception exception) {
         super.alertException(exception, operation.getLabel());
@@ -262,9 +201,17 @@ public class CloudCertificateListFragment extends ViewModelFragment<FragmentClou
             getViewModel().exportCertificate(position, pin, secret, completion, this::alertException);
         };
 
-        acquirePassword(true, false, "", pin ->
-                acquirePassword(false, true, "", secret ->
-                        onPasswordAcquired.accept(pin, secret)));
+        acquirePassword(requireContext(),
+                operation.getLabel(),
+                true,
+                false,
+                "",
+                pin -> acquirePassword(requireContext(),
+                        operation.getLabel(),
+                        false,
+                        true,
+                        "",
+                        secret -> onPasswordAcquired.accept(pin, secret)));
     }
 
     private void changeCertificatePin(int position) {
@@ -277,9 +224,17 @@ public class CloudCertificateListFragment extends ViewModelFragment<FragmentClou
             getViewModel().changeCertificatePin(position, oldPin, newPin, completion, this::alertException);
         };
 
-        acquirePassword(true, false, "", oldPin ->
-                acquirePassword(true, true, "", newPin ->
-                        onPinAcquired.accept(oldPin, newPin)));
+        acquirePassword(requireContext(),
+                operation.getLabel(),
+                true,
+                false,
+                "",
+                oldPin -> acquirePassword(requireContext(),
+                        operation.getLabel(),
+                        true,
+                        true,
+                        "",
+                        newPin -> onPinAcquired.accept(oldPin, newPin)));
     }
 
     private void deleteCertificate(int position) {
@@ -307,38 +262,40 @@ public class CloudCertificateListFragment extends ViewModelFragment<FragmentClou
 
     private void updateCertificate(int position) {
         Consumer<Hashtable<String, Object>> completion = (ret) -> {
-            if (((String)ret.get("CODE")).equalsIgnoreCase("-4100") &&
-                    ((String)ret.get("MESSAGE")).startsWith("SKM_CA_0002")) {
+            dismissLoading();
 
-                // cloud 용 opp code 값 setting   TODO 어디 들어가고 어디 빠질지
-                if(((String)ret.get("MESSAGE")).contains("SK_MC")) {
-                    opp = "SK_MC";
-                }
+            code = (String) ret.get("CODE");
 
-                KSCertificateExt cert = getViewModel().getCertificates().get(position);
-                showBillingActivity(cert.getSerialInt());
-            } else {
-                code = (String) ret.get("CODE");
-
-                if (code.equalsIgnoreCase("NL709")) {
-                    message = "클라우드에 없는 인증서입니다.";
-                } else if (code.equalsIgnoreCase("NL711")) {
-                    message = "pin 번호가 틀렸습니다.";
-                } else if (code.equalsIgnoreCase("NL715")) {
-                    message = "pin 번호 5회 오류로 인증서가 잠겼습니다.";
-                } else if (code.equalsIgnoreCase("NL716") || code.equalsIgnoreCase("NL717")) {
-                    message = "클라우드 인증 서비스에 오류가 발생했습니다.";
-                } else{
-                    message = (String) ret.get("MESSAGE");
-                }
-
-                requireActivity().runOnUiThread(() -> new AlertDialog.Builder(requireActivity())
-                        .setTitle(code)
-                        .setMessage(message)
-                        .setPositiveButton(android.R.string.ok, null)
-                        .setNegativeButton(android.R.string.cancel, null)
-                        .show());
+            if (code.equalsIgnoreCase("NL709")) {
+                message = "클라우드에 없는 인증서입니다.";
+            } else if (code.equalsIgnoreCase("NL711")) {
+                message = "pin 번호가 틀렸습니다.";
+            } else if (code.equalsIgnoreCase("NL715")) {
+                message = "pin 번호 5회 오류로 인증서가 잠겼습니다.";
+            } else if (code.equalsIgnoreCase("NL716") || code.equalsIgnoreCase("NL717")) {
+                message = "클라우드 인증 서비스에 오류가 발생했습니다.";
+            } else{
+                message = (String) ret.get("MESSAGE");
             }
+
+            requireActivity().runOnUiThread(() -> new AlertDialog.Builder(requireActivity())
+                    .setTitle(code)
+                    .setMessage(message)
+                    .setPositiveButton(android.R.string.ok, (dialog, which) -> {
+                        if(code.equalsIgnoreCase("CMP201")) {   // CMP201: 인증서 갱신 성공
+                            // 인증서 목록 갱신
+                            showLoading();
+                            Consumer<Exception> onLoadingError = exception -> alertException(exception, operation.getLabel(), true);
+
+                            Runnable onLoadingComplete = () -> {
+                                dismissLoading();
+                                adapter.notifyDataSetChanged();
+                            };
+                            getViewModel().setDataSource(CertificateListFragmentViewModel.DataSource.remote)
+                                    .loadData(onLoadingComplete, onLoadingError, null);
+                        }
+                    })
+                    .show());
         };
 
         Consumer<String> onPasswordAcquired = (pin) -> {
@@ -347,8 +304,12 @@ public class CloudCertificateListFragment extends ViewModelFragment<FragmentClou
             getViewModel().updateCertificate(position, pin, completion);
         };
 
-        acquirePassword(true, false, "", pin ->
-                onPasswordAcquired.accept(pin));
+        acquirePassword(requireContext(),
+                operation.getLabel(),
+                true,
+                false,
+                "",
+                pin -> onPasswordAcquired.accept(pin));
     }
 
     private void unlockCertificate(int position) {
@@ -420,7 +381,7 @@ public class CloudCertificateListFragment extends ViewModelFragment<FragmentClou
 
             binding.setSubject(cert.getSubject());
             binding.setNotAfter(notAfter);
-            binding.setSerial(cert.getSerial());
+            binding.setSerial(cert.getSerialInt());
             StringBuffer sb = new StringBuffer();
             if (cert.isCloud()) {
                 sb.append("Cloud-");

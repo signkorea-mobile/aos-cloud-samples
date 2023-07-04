@@ -24,9 +24,9 @@ public enum CertificateOperation {
             case issue:
                 return "인증서 발급";
             case updateLocal:
-                return "인증서 갱신(로컬)";
+                return "로컬 인증서 갱신";
             case updateCloud:
-                return "인증서 갱신(클라우드)";
+                return "클라우드 인증서 갱신";
             case unlock:
                 return "인증서 잠금 해제";
             default:

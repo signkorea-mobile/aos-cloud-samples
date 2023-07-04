@@ -10,11 +10,11 @@ import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
-import com.signkorea.cloud.sample.viewModels.InterFragmentStore;
-import com.yettiesoft.cloud.PhoneNumberProofTransaction;
-import com.signkorea.cloud.sample.views.base.DataBindingFragment;
 import com.signkorea.cloud.sample.R;
 import com.signkorea.cloud.sample.databinding.FragmentPhoneNumberAuthenticationV1Binding;
+import com.signkorea.cloud.sample.viewModels.InterFragmentStore;
+import com.signkorea.cloud.sample.views.base.DataBindingFragment;
+import com.yettiesoft.cloud.PhoneNumberProofTransaction;
 
 import java.util.Timer;
 import java.util.TimerTask;
@@ -42,11 +42,11 @@ public class PhoneNumberAuthenticationV1Fragment extends DataBindingFragment<Fra
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
 
-        transaction = getInterFragmentStore().accept(
+        transaction = getInterFragmentStore().remove(
             R.id.phoneNumberAuthenticationV1Fragment,
             InterFragmentStore.MO_API_TRANSACTION);
 
-        Runnable confirmAction = getInterFragmentStore().accept(
+        Runnable confirmAction = getInterFragmentStore().remove(
             R.id.phoneNumberAuthenticationV1Fragment,
             InterFragmentStore.MO_ACTION_CONFIRM);
 
@@ -88,11 +88,6 @@ public class PhoneNumberAuthenticationV1Fragment extends DataBindingFragment<Fra
 
             case Complete: {
                 // TODO
-//                getBinding().confirmButton.setBackgroundColor(0xffe65619);
-//                getBinding().confirmButton.setText("확인");
-//                getBinding().confirmButton.setEnabled(true);
-                // SMS인증이 확인되면 다음 단계로 진행
-                getInterFragmentStore().remove(InterFragmentStore.FALLBACK_FRAGMENT_ID);
                 getBinding().confirmButton.callOnClick();
             } break;
 
@@ -149,14 +144,14 @@ public class PhoneNumberAuthenticationV1Fragment extends DataBindingFragment<Fra
 
     @SuppressWarnings("ConstantConditions")
     private void cancel() {
-        getInterFragmentStore().<Runnable>peek(InterFragmentStore.MO_ACTION_CANCEL).run();
-        getInterFragmentStore().<Runnable>accept(R.id.phoneNumberAuthenticationV1Fragment, InterFragmentStore.MO_ACTION_CANCEL).run();
+        getInterFragmentStore().<Runnable>remove(InterFragmentStore.MO_ACTION_CANCEL).run();
+        getInterFragmentStore().<Runnable>remove(R.id.phoneNumberAuthenticationV1Fragment, InterFragmentStore.MO_API_CANCEL).run();
     }
 
     @Override
     public void onDestroy() {
         super.onDestroy();
-        getInterFragmentStore().accept(R.id.phoneNumberAuthenticationV1Fragment, InterFragmentStore.MO_ACTION_CANCEL);
+        getInterFragmentStore().remove(R.id.phoneNumberAuthenticationV1Fragment, InterFragmentStore.MO_ACTION_CANCEL);
     }
 
     private void schedule() {

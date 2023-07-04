@@ -2,9 +2,14 @@ package com.signkorea.cloud.sample.views;
 
 import android.annotation.SuppressLint;
 import android.app.AlertDialog;
+import android.app.Dialog;
+import android.content.Intent;
+import android.graphics.Color;
+import android.graphics.drawable.ColorDrawable;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.MenuItem;
+import android.widget.ProgressBar;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
@@ -20,11 +25,10 @@ import androidx.navigation.ui.NavigationUI;
 import com.signkorea.cloud.sample.R;
 import com.signkorea.cloud.sample.databinding.ActivityMainBinding;
 import com.signkorea.cloud.sample.enums.CertificateOperation;
-import com.signkorea.cloud.sample.repository.CertificateRepo;
-import com.signkorea.cloud.sample.views.fragments.CloudCertificateListFragmentArgs;
-import com.signkorea.cloud.sample.views.fragments.LocalCertificateListFragmentArgs;
 import com.signkorea.cloud.sample.viewModels.InterFragmentStore;
 import com.signkorea.cloud.sample.views.base.DataBindingActivity;
+import com.signkorea.cloud.sample.views.fragments.CloudCertificateListFragmentArgs;
+import com.signkorea.cloud.sample.views.fragments.LocalCertificateListFragmentArgs;
 import com.yettiesoft.cloud.AcknowledgeConditionsOfUseReason;
 import com.yettiesoft.cloud.AcquiredUserInfo;
 import com.yettiesoft.cloud.Client;
@@ -40,6 +44,7 @@ public class MainActivity extends DataBindingActivity<ActivityMainBinding> imple
     private final String TAG = getClass().getSimpleName();
     private InterFragmentStore interFragmentStore;
     private AppBarConfiguration appBarConfiguration;
+    private Dialog loadingPopup;
 
     @Override
     @SuppressLint("NonConstantResourceId")
@@ -55,6 +60,7 @@ public class MainActivity extends DataBindingActivity<ActivityMainBinding> imple
         NavigationUI.setupActionBarWithNavController(this, navController, appBarConfiguration);
 
         navController.addOnDestinationChangedListener((controller, destination, arguments) -> {
+
             if (destination.getId() == R.id.homeFragment || destination.getId() == R.id.loginFragment ||
                     destination.getId() == R.id.certificateManagementFragment || destination.getId() == R.id.accountManagementFragment) {
                 getSupportActionBar().show();
@@ -74,6 +80,12 @@ public class MainActivity extends DataBindingActivity<ActivityMainBinding> imple
             }
 
         });
+
+        loadingPopup = new Dialog(this);
+        loadingPopup.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+        loadingPopup.setContentView(new ProgressBar(this));
+        loadingPopup.setCanceledOnTouchOutside(false);
+        loadingPopup.setOnCancelListener(null);
     }
 
     @Override
@@ -91,7 +103,7 @@ public class MainActivity extends DataBindingActivity<ActivityMainBinding> imple
                 case R.id.conditionsOfUseFragment:
                 case R.id.phoneNumberAuthenticationV1Fragment:
                 case R.id.phoneNumberAuthenticationV2Fragment:
-                    getInterFragmentStore().<Runnable>peek(InterFragmentStore.MO_ACTION_CANCEL).run();
+                    getInterFragmentStore().<Runnable>remove(InterFragmentStore.MO_ACTION_CANCEL).run();
                     return true;
                 default:
                     break;
@@ -109,36 +121,21 @@ public class MainActivity extends DataBindingActivity<ActivityMainBinding> imple
         return interFragmentStore;
     }
 
-    @SuppressWarnings("ConstantConditions")
-    private Runnable registerCancelAction() {
-        int destFragId = getNavController().getCurrentDestination().getId();
-        Runnable cancelAction = () -> {
-            Integer nextFragId = null;//getInterFragmentStore().remove(InterFragmentStore.FALLBACK_FRAGMENT_ID);   // TODO 필요한지 확인
-            if (nextFragId == null)
-                getNavController().popBackStack(destFragId, false);
-            else
-                getNavController().popBackStack(nextFragId, false);
-            getInterFragmentStore().remove(InterFragmentStore.MO_ACTION_CANCEL);
-            getSupportActionBar().show();
-        };
-
-        getInterFragmentStore().entrust(InterFragmentStore.MO_ACTION_CANCEL, cancelAction);
-
-        return cancelAction;
-    }
-
+    // region Client.Delegate 구현부
+    // 클라우드 사용자 가입 정보가 요구되는 이벤트 발생
     @SuppressWarnings("ConstantConditions")
     @Override
     public void acquireUserInfo(@NonNull Client.UserInfoAcceptor acceptor, @NonNull Runnable cancel) {
         registerCancelAction();
 
-        getInterFragmentStore().entrust(R.id.userInfoFormFragment, InterFragmentStore.FALLBACK_FRAGMENT_ID,acceptor);
-        getInterFragmentStore().entrust(R.id.userInfoFormFragment, InterFragmentStore.MO_API_CANCEL, cancel);
+        getInterFragmentStore().put(R.id.userInfoFormFragment, InterFragmentStore.MO_ACTION_CONFIRM, acceptor);
+        getInterFragmentStore().put(R.id.userInfoFormFragment, InterFragmentStore.MO_API_CANCEL, cancel);
 
         getNavController().navigate(R.id.userInfoFormFragment);
         getSupportActionBar().hide();
     }
 
+    // 사용자의 약관 동의가 요구되는 이벤트 발생
     @SuppressWarnings("ConstantConditions")
     @Override
     public void acknowledgeConditionsOfUse(@Nullable AcquiredUserInfo userInfo,
@@ -164,8 +161,8 @@ public class MainActivity extends DataBindingActivity<ActivityMainBinding> imple
         }
 
         Runnable acknowledgeConditionsOfUse = () -> {
-            getInterFragmentStore().entrust(R.id.conditionsOfUseFragment, InterFragmentStore.FALLBACK_FRAGMENT_ID, confirmAction);
-            getInterFragmentStore().entrust(R.id.conditionsOfUseFragment, InterFragmentStore.MO_API_CANCEL, cancel);
+            getInterFragmentStore().put(R.id.conditionsOfUseFragment, InterFragmentStore.MO_ACTION_CONFIRM, confirmAction);
+            getInterFragmentStore().put(R.id.conditionsOfUseFragment, InterFragmentStore.MO_API_CANCEL, cancel);
 
             Bundle bundle = new Bundle();
             bundle.putSerializable("reason", reason);
@@ -178,7 +175,7 @@ public class MainActivity extends DataBindingActivity<ActivityMainBinding> imple
                 .setTitle("다른 이름으로 가입된 정보가 있습니다.")
                 .setMessage("재가입하시겠습니까? 저장된 인증서는 모두 삭제됩니다.")
                 .setPositiveButton(android.R.string.ok, (dialog, which) -> acknowledgeConditionsOfUse.run())
-                .setNegativeButton(android.R.string.cancel,(dialog, which) -> getInterFragmentStore().<Runnable>peek(InterFragmentStore.MO_ACTION_CANCEL).run())
+                .setNegativeButton(android.R.string.cancel,(dialog, which) -> getInterFragmentStore().<Runnable>remove(InterFragmentStore.MO_ACTION_CANCEL).run())
                 .show();
         } else {
             // 약관이 업데이트된 경우 재동의가 필요함을 안내
@@ -188,11 +185,12 @@ public class MainActivity extends DataBindingActivity<ActivityMainBinding> imple
         }
     }
 
+    // 사용자로부터 MO 인증이 요구되는 이벤트 발생
     @SuppressWarnings("ConstantConditions")
     @Override
     public void onPhoneNumberProofTransactionStart(@NonNull PhoneNumberProofTransaction transaction,
                                                    @NonNull Runnable cancel) {
-        val cancelAction = Optional.<Runnable>ofNullable(getInterFragmentStore().peek(InterFragmentStore.MO_ACTION_CANCEL))
+        val cancelAction = Optional.<Runnable>ofNullable(getInterFragmentStore().remove(InterFragmentStore.MO_ACTION_CANCEL))
             .orElseGet(() -> {
                 int destination = getNavController().getCurrentDestination().getId();
 
@@ -203,7 +201,7 @@ public class MainActivity extends DataBindingActivity<ActivityMainBinding> imple
                 };
             });
 
-        getInterFragmentStore().entrust(InterFragmentStore.MO_ACTION_CANCEL, (Runnable)() -> {
+        getInterFragmentStore().put(InterFragmentStore.MO_ACTION_CANCEL, (Runnable)() -> {
             transaction.cancel();
             cancelAction.run();
         });
@@ -215,14 +213,48 @@ public class MainActivity extends DataBindingActivity<ActivityMainBinding> imple
             fragId = R.id.phoneNumberAuthenticationV1Fragment;
         }
 
-        getInterFragmentStore().entrust(fragId, InterFragmentStore.FALLBACK_FRAGMENT_ID, (Runnable)() -> {
+        getInterFragmentStore().put(fragId, InterFragmentStore.MO_ACTION_CONFIRM, (Runnable)() -> {
             transaction.commit();
             cancelAction.run();
         });
 
-        getInterFragmentStore().entrust(fragId, InterFragmentStore.FALLBACK_FRAGMENT_ID, transaction);
-        getInterFragmentStore().entrust(fragId, InterFragmentStore.MO_API_CANCEL, cancel);
+        getInterFragmentStore().put(fragId, InterFragmentStore.MO_API_TRANSACTION, transaction);
+        getInterFragmentStore().put(fragId, InterFragmentStore.MO_API_CANCEL, cancel);
 
         getNavController().navigate(fragId);
+    }
+
+    @SuppressWarnings("ConstantConditions")
+    private Runnable registerCancelAction() {
+        int destFragId = getNavController().getCurrentDestination().getId();
+        Runnable cancelAction = () -> {
+            Integer nextFragId = null;//getInterFragmentStore().remove(InterFragmentStore.FALLBACK_FRAGMENT_ID);   // TODO 필요한지 확인
+            if (nextFragId == null)
+                getNavController().popBackStack(destFragId, false);
+            else
+                getNavController().popBackStack(nextFragId, false);
+            getInterFragmentStore().remove(InterFragmentStore.MO_ACTION_CANCEL);
+            getSupportActionBar().show();
+        };
+
+        getInterFragmentStore().put(InterFragmentStore.MO_ACTION_CANCEL, cancelAction);
+
+        return cancelAction;
+    }
+    // endregion
+
+    // region   전 화면 공통 로딩 UI (Activity에 attach)
+    public void showLoading() {
+        loadingPopup.show();
+    }
+
+    public void dismissLoading() {
+        loadingPopup.dismiss();
+    }
+    // endregion
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
     }
 }

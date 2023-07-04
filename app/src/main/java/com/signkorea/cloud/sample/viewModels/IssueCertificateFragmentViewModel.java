@@ -22,18 +22,16 @@ public class IssueCertificateFragmentViewModel extends ViewModel {
 
     private KSCertificateManagerExt certMgr = new KSCertificateManagerExt();
 
-    public IssueCertificateFragmentViewModel init(Context context) throws InvalidLicenseException {
+    public IssueCertificateFragmentViewModel init(Context context,
+                                                  Client.Delegate delegate,
+                                                  KSCertificateManagerExt.Delegate cmpDelegate) throws InvalidLicenseException {
         refNum.set("");
         code.set("");
         pwd.set("1q2w3e4r!!");
 
-        certMgr.init(context);
-        return this;
-    }
-
-    @SuppressWarnings("UnusedReturnValue")
-    public IssueCertificateFragmentViewModel setClientDelegate(Client.Delegate delegate) {
-        certMgr.setClientDelegate(delegate);
+        certMgr.init(context)
+                .setClientDelegate(delegate)
+                .setCMPDelegate(cmpDelegate);
         return this;
     }
 

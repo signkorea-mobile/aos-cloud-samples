@@ -12,25 +12,22 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.databinding.Observable;
-import androidx.databinding.ObservableField;
 import androidx.navigation.Navigation;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.lumensoft.ks.KSException;
 import com.signkorea.certmanager.BillActivity;
-import com.signkorea.certmanager.BillParam;
 import com.signkorea.cloud.Bio;
 import com.signkorea.cloud.KSCertificateExt;
 import com.signkorea.cloud.KSCertificateManagerExt;
 import com.signkorea.cloud.sample.R;
-import com.signkorea.cloud.sample.views.base.ViewModelFragment;
-import com.signkorea.cloud.sample.databinding.AlertPasswordBinding;
 import com.signkorea.cloud.sample.databinding.FragmentLocalCertificateListBinding;
 import com.signkorea.cloud.sample.databinding.ItemCertificateBinding;
 import com.signkorea.cloud.sample.enums.CertificateOperation;
 import com.signkorea.cloud.sample.utils.OnceRunnable;
 import com.signkorea.cloud.sample.viewModels.CertificateListFragmentViewModel;
+import com.signkorea.cloud.sample.viewModels.InterFragmentStore;
+import com.signkorea.cloud.sample.views.base.ViewModelFragment;
 import com.signkorea.securedata.ProtectedData;
 import com.signkorea.securedata.SecureData;
 import com.yettiesoft.cloud.Client;
@@ -73,7 +70,9 @@ public class LocalCertificateListFragment
 
     private final OnceRunnable loadData = new OnceRunnable(() -> {
         try {
-            getViewModel().init(requireContext().getApplicationContext(), (Client.Delegate)requireActivity());
+            getViewModel().init(requireContext().getApplicationContext(),
+                    (Client.Delegate)requireActivity(),
+                    this);
         } catch (Exception exception) {
             alertException(exception, operation.getLabel(), true);
             return;
@@ -92,7 +91,7 @@ public class LocalCertificateListFragment
                     case register:
                         new AlertDialog.Builder(requireContext())
                                 .setTitle(operation.getLabel())
-                                .setMessage("클라우드에 저장 가능한 인증서가 없습니다.\n\n인증서 발급 또는 로컬인증서로 인증서 저장이 필요합니다.")
+                                .setMessage("로컬 저장소에 내 인증서가 없습니다.")
                                 .setPositiveButton(android.R.string.ok, (dialog, which) -> {
                                     Navigation.findNavController(getView()).navigate(R.id.homeFragment);
                                 })
@@ -113,7 +112,7 @@ public class LocalCertificateListFragment
 
         showLoading();
         getViewModel().setDataSource(CertificateListFragmentViewModel.DataSource.local)
-                .loadData(requireContext(), completion, onError, null);
+                .loadData(completion, onError, null);
     });
 
     @Override
@@ -129,40 +128,6 @@ public class LocalCertificateListFragment
     public void onResume() {
         super.onResume();
         loadData.run();
-    }
-
-    @Override
-    public void onActivityResult(int requestCode, int resultCode, Intent data) {
-        if(requestCode == BillActivity.ID) {
-            // 수행을 제대로 한 경우
-            if(resultCode == Activity.RESULT_OK && data != null)
-            {
-                Consumer<Hashtable<String, Object>> completion = (ret) -> {
-                    requireActivity().runOnUiThread(() -> new AlertDialog.Builder(requireActivity())
-                            .setTitle((String)ret.get("CODE"))
-                            .setMessage((String)ret.get("MESSAGE"))
-                            .setPositiveButton(android.R.string.ok, (dialog, which) -> {})
-                            .setNegativeButton(android.R.string.cancel, (dialog, which) -> {})
-                            .show());
-                };
-
-                getViewModel().updateCertificate(updatePosition, updatePin, completion);
-            }
-            // 수행을 제대로 하지 못한 경우
-            else if(resultCode == Activity.RESULT_CANCELED)
-            {
-                String reason = "갱신 취소 : ";
-                if(data != null)
-                    reason += data.getStringExtra(BillActivity.REASON);
-
-                String finalReason = reason;
-                requireActivity().runOnUiThread(() -> new AlertDialog.Builder(requireActivity())
-                        .setTitle(finalReason)
-                        .setPositiveButton(android.R.string.ok, (dialog, which) -> {})
-                        .setNegativeButton(android.R.string.cancel, (dialog, which) -> {})
-                        .show());
-            }
-        }
     }
 
     private void onItemClick(int position) {
@@ -181,54 +146,6 @@ public class LocalCertificateListFragment
         }
     }
 
-    private void acquirePassword(boolean pinMode, boolean confirmPassword, String initialPassword, Consumer<String> completion) {
-        ObservableField<String> pwd1 = new ObservableField<String>();
-        ObservableField<String> pwd2 = new ObservableField<String>();
-
-        AlertPasswordBinding binding =
-            AlertPasswordBinding.inflate(LayoutInflater.from(requireContext()));
-
-        binding.setPassword1(pwd1);
-        binding.setPassword2(pwd2);
-        binding.setConfirmPassword(confirmPassword);
-        binding.setPinMode(pinMode);
-
-        AlertDialog alert = new AlertDialog.Builder(requireContext())
-                .setTitle(operation.getLabel())
-                .setView(binding.getRoot())
-                .setPositiveButton(android.R.string.ok, (dialog, which) -> completion.accept(pwd1.get()))
-                .setNegativeButton(android.R.string.cancel, (dialog, which) -> {})
-                .create();
-
-        if (confirmPassword) {
-            Observable.OnPropertyChangedCallback onPwdChanged = new Observable.OnPropertyChangedCallback() {
-                @Override
-                public void onPropertyChanged(Observable sender, int propertyId) {
-                    String pwd = pwd1.get();
-                    boolean ok = pwd != null && pwd.length() > 0 && pwd.equals(pwd2.get());
-                    alert.getButton(AlertDialog.BUTTON_POSITIVE).setEnabled(ok);
-                }
-            };
-            pwd1.addOnPropertyChangedCallback(onPwdChanged);
-            pwd2.addOnPropertyChangedCallback(onPwdChanged);
-        } else {
-            Observable.OnPropertyChangedCallback onPwdChanged = new Observable.OnPropertyChangedCallback() {
-                @Override
-                public void onPropertyChanged(Observable sender, int propertyId) {
-                    String pwd = pwd1.get();
-                    boolean ok = pwd != null && pwd.length() > 0;
-                    alert.getButton(AlertDialog.BUTTON_POSITIVE).setEnabled(ok);
-                }
-            };
-            pwd1.addOnPropertyChangedCallback(onPwdChanged);
-        }
-
-        alert.show();
-
-        pwd1.set(initialPassword);
-        pwd2.set(initialPassword);
-    }
-
     private void registerCertificate(int position) {
         Consumer<KSCertificateExt> completion = cert -> {
             dismissLoading();
@@ -236,7 +153,7 @@ public class LocalCertificateListFragment
 
             new AlertDialog.Builder(requireContext())
                     .setTitle(operation.getLabel() + " 성공")
-                    .setMessage(cert.getSubject() + "\n\n추가로 생체정보 등록을 진행 하시겠습니까?")
+                    .setMessage(cert.getSubject() + "\n추가로 생체정보 등록을 진행 하시겠습니까?")
                     .setPositiveButton(android.R.string.ok, (dialog, which) -> {
                         try {
                             bio = new Bio(requireActivity(), this.certMgr);
@@ -250,12 +167,22 @@ public class LocalCertificateListFragment
 
                                         if (bio.isBio(id)) {
                                             bio.removeBioCloud(id);
-                                            acquirePassword(true, false, "", pin -> {
-                                                bio.addBioCloud(id, new SecureData(pin.getBytes()));
+                                            acquirePassword(requireContext(),
+                                                    operation.getLabel(),
+                                                    true,
+                                                    false,
+                                                    "",
+                                                    pin -> {
+                                                        bio.addBioCloud(id, new SecureData(pin.getBytes()));
                                             });
                                         } else {
-                                            acquirePassword(true, false, "", pin -> {
-                                                bio.addBioCloud(id, new SecureData(pin.getBytes()));
+                                            acquirePassword(requireContext(),
+                                                    operation.getLabel(),
+                                                    true,
+                                                    false,
+                                                    "",
+                                                    pin -> {
+                                                        bio.addBioCloud(id, new SecureData(pin.getBytes()));
                                             });
                                         }
                                     }
@@ -309,9 +236,17 @@ public class LocalCertificateListFragment
                 onError);
         };
 
-        acquirePassword(false, false, "", password ->
-            acquirePassword(true, true, "", pin ->
-                onPasswordAcquired.accept(password, pin)));
+        acquirePassword(requireContext(),
+                operation.getLabel(),
+                false,
+                false,
+                "",
+                password -> acquirePassword(requireContext(),
+                                                operation.getLabel(),
+                                                true,
+                                                true,
+                                                "",
+                                                pin -> onPasswordAcquired.accept(password, pin)));
     }
 
     @Override
@@ -322,54 +257,46 @@ public class LocalCertificateListFragment
     private void updateCertificate(int position) {
         Consumer<Hashtable<String, Object>> completion = (ret) -> {
             dismissLoading();
-            if (((String)ret.get("CODE")).equalsIgnoreCase("-4100") &&
-                ((String)ret.get("MESSAGE")).startsWith("SKM_CA_0002")) {
 
-                KSCertificateExt cert = getViewModel().getCertificates().get(position);
-                showBillingActivity(cert.getSerialInt());
-            } else {
-                code = (String) ret.get("CODE");
+            code = (String) ret.get("CODE");
+            if (code.equalsIgnoreCase("NL716") || code.equalsIgnoreCase("NL717"))
+                message = "클라우드 인증 서비스에 오류가 발생했습니다.";
+            else
+                message = (String) ret.get("MESSAGE");
 
-                if (code.equalsIgnoreCase("NL709")) {
-                    message = "클라우드에 없는 인증서입니다.";
-                } else if (code.equalsIgnoreCase("NL711")) {
-                    message = "pin 번호가 틀렸습니다.";
-                } else if (code.equalsIgnoreCase("NL715")) {
-                    message = "pin 번호 5회 오류로 인증서가 잠겼습니다.";
-                } else if (code.equalsIgnoreCase("NL716") || code.equalsIgnoreCase("NL717")) {
-                    message = "클라우드 인증 서비스에 오류가 발생했습니다.";
-                } else{
-                    message = (String) ret.get("MESSAGE");
-                }
+            requireActivity().runOnUiThread(() -> new AlertDialog.Builder(requireActivity())
+                .setTitle(code)
+                .setMessage(message)
+                .setPositiveButton(android.R.string.ok, (dialog, which) -> {
+                    if(code.equalsIgnoreCase("CMP201")) {   // CMP201: 인증서 갱신 성공
+                        // 인증서 목록 갱신
+                        showLoading();
+                        Consumer<Exception> onLoadingError = exception -> alertException(exception, operation.getLabel(), true);
 
-                requireActivity().runOnUiThread(() -> new AlertDialog.Builder(requireActivity())
-                    .setTitle(code)
-                    .setMessage(message)
-                    .setPositiveButton(android.R.string.ok, null)
-                    .show());
-            }
+                        Runnable onLoadingComplete = () -> {
+                            dismissLoading();
+                            adapter.notifyDataSetChanged();
+                        };
+                        getViewModel().setDataSource(CertificateListFragmentViewModel.DataSource.local)
+                                .loadData(onLoadingComplete, onLoadingError, null);
+                    }
+                })
+                .show());
         };
 
         Consumer<String> onPasswordAcquired = (pin) -> {
-            showLoading();
-
             updatePosition = position;
             updatePin = pin;
             getViewModel().updateCertificate(position, pin, completion);
         };
 
-        acquirePassword(true, false, "", pin ->
-            onPasswordAcquired.accept(pin));
-    }
-
-    private void showBillingActivity(String serial) {
-        Intent intent = new Intent(this.getContext(), BillActivity.class);
-        intent.putExtra(BillActivity.IS_MAIN_SERVER, false); // 메인 서버인 경우에는  true로 설정
-        intent.putExtra(BillActivity.OPERATION, BillActivity.UPDATE);
-        intent.putExtra(BillActivity.SERIAL, BillParam.makeBillParam(serial));
-        if (opp != null)
-            intent.putExtra(BillActivity.OPP, opp);
-        startActivityForResult(intent, BillActivity.ID);
+        showLoading();
+        acquirePassword(requireContext(),
+                operation.getLabel(),
+                false,
+                false,
+                "",
+                pwd -> onPasswordAcquired.accept(pwd));
     }
 
     class Adapter extends RecyclerView.Adapter<ItemView> {
@@ -420,7 +347,7 @@ public class LocalCertificateListFragment
 
             binding.setSubject(cert.getSubject());
             binding.setNotAfter(notAfter);
-            binding.setSerial(cert.getSerial());
+            binding.setSerial(cert.getSerialInt());
             StringBuffer sb = new StringBuffer();
             if (cert.isCloud()) {
                 sb.append("Cloud-");
@@ -483,5 +410,26 @@ public class LocalCertificateListFragment
             // 로컬 인증서 화면에서는 등록 처리만 구현되어 있습니다.
             assert false : "정의되지 않은 생체 인증 operation: " + operation.name();
         }
+    }
+
+    // 로컬 인증서 updateLocal() 처리 중 BillActivity 화면 전환 후 결과 처리
+    @Override
+    public void onActivityResult(int requestCode, int resultCode, Intent data) {
+        if(requestCode == BillActivity.ID) {
+            String useAction;
+            String discardAction;
+            if(resultCode == Activity.RESULT_OK){
+                useAction = InterFragmentStore.BILL_ACTION_COMPLETE;
+                discardAction = InterFragmentStore.BILL_ACTION_CANCEL;
+            }
+            else {
+                useAction = InterFragmentStore.BILL_ACTION_CANCEL;
+                discardAction = InterFragmentStore.BILL_ACTION_COMPLETE;
+            }
+            getInterFragmentStore().<Runnable>remove(useAction).run();
+            getInterFragmentStore().remove(discardAction);
+        }
+        else
+            super.onActivityResult(requestCode, resultCode, data);
     }
 }

@@ -4,13 +4,10 @@ import android.app.AlertDialog;
 import android.os.Bundle;
 import android.util.Base64;
 import android.util.Log;
-import android.view.LayoutInflater;
 import android.view.View;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.databinding.Observable;
-import androidx.databinding.ObservableField;
 import androidx.navigation.NavDirections;
 import androidx.navigation.Navigation;
 
@@ -20,13 +17,10 @@ import com.lumensoft.ks.KSSign;
 import com.signkorea.cloud.Bio;
 import com.signkorea.cloud.KSCertificateExt;
 import com.signkorea.cloud.KSCertificateManagerExt;
-import com.signkorea.cloud.sample.R;
-import com.signkorea.cloud.sample.databinding.AlertPasswordBinding;
 import com.signkorea.cloud.sample.databinding.FragmentLoginBinding;
 import com.signkorea.cloud.sample.enums.CertificateOperation;
 import com.signkorea.cloud.sample.enums.SignMenuType;
 import com.signkorea.cloud.sample.utils.OnceRunnable;
-import com.signkorea.cloud.sample.viewModels.InterFragmentStore;
 import com.signkorea.cloud.sample.views.base.DataBindingFragment;
 import com.signkorea.securedata.ProtectedData;
 import com.signkorea.securedata.SecureData;
@@ -53,7 +47,10 @@ public class LoginFragment extends DataBindingFragment<FragmentLoginBinding> imp
     private Bio bio = null;
 
     private final OnceRunnable initClient = new OnceRunnable(() -> {
-        Consumer<Exception> onError = e -> alertException(e, menuType.getLabel(), true);
+        Consumer<Exception> onError = e -> {
+            menuType = LoginFragmentArgs.fromBundle(getArguments()).getSignMenuType();
+            alertException(e, menuType.getLabel(), true);
+        };
 
         try {
             certMgr.init(requireContext().getApplicationContext());
@@ -62,6 +59,7 @@ public class LoginFragment extends DataBindingFragment<FragmentLoginBinding> imp
         }
 
         certMgr.setClientDelegate((Client.Delegate) requireActivity());
+        certMgr.setCMPDelegate(this);
 
         Predicate<KSCertificateExt> certificateFilter = certInfo -> true;
 
@@ -72,12 +70,11 @@ public class LoginFragment extends DataBindingFragment<FragmentLoginBinding> imp
             this.certificates = certificates.stream().filter(certificateFilter).collect(Collectors.toList());
 
             certificateIndex = LoginFragmentArgs.fromBundle(getArguments()).getCertificateIndex();
+            getBinding().authTypeBtnFinger.setVisibility(View.INVISIBLE);
 
             if (certificateIndex >= 0) {
                 getBinding().selectdnText.setText(this.certificates.get(certificateIndex).getSubject());
-
                 getBinding().authTypeBtnPin.setVisibility(View.VISIBLE);
-                getBinding().authTypeBtnFinger.setVisibility(View.VISIBLE);
 
                 menuType = LoginFragmentArgs.fromBundle(getArguments()).getSignMenuType();
                 switch(menuType) {
@@ -93,7 +90,7 @@ public class LoginFragment extends DataBindingFragment<FragmentLoginBinding> imp
                     case REGISTER:
                         getBinding().koscomCmsSign.setVisibility(View.VISIBLE);
                         getBinding().getRandom.setVisibility(View.VISIBLE);
-                        getBinding().koscomCmsSign.setText("서명 데이터 추출");
+                        getBinding().koscomCmsSign.setText("서명 데이터 생성");
                         break;
                 }
 
@@ -110,8 +107,6 @@ public class LoginFragment extends DataBindingFragment<FragmentLoginBinding> imp
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
-
-        getInterFragmentStore().entrust(InterFragmentStore.FALLBACK_FRAGMENT_ID, R.id.homeFragment);
 
         NavDirections directions;
         // 인증서 선택
@@ -145,9 +140,14 @@ public class LoginFragment extends DataBindingFragment<FragmentLoginBinding> imp
                             .setTitle("생체 인증 등록")
                             .setMessage("등록된 생체정보가 없습니다.\n등록을 진행 하시겠습니까?")
                             .setPositiveButton(android.R.string.ok, (dialog, which) -> {
-                                acquirePassword(true, false, "", pin -> {
-                                    showLoading();
-                                    bio.addBioCloud(id, new SecureData(pin.getBytes()));
+                                acquirePassword(requireContext(),
+                                        operation.getLabel(),
+                                        true,
+                                        false,
+                                        "",
+                                        pin -> {
+                                            showLoading();
+                                            bio.addBioCloud(id, new SecureData(pin.getBytes()));
                                 });
                             })
                             .setNegativeButton(android.R.string.cancel, null)
@@ -156,14 +156,24 @@ public class LoginFragment extends DataBindingFragment<FragmentLoginBinding> imp
             }
             else
             {
-                acquirePassword(true, false, "", pin -> {
-                    cloudSign(type, new SecureData(pin.getBytes()));
+                acquirePassword(requireContext(),
+                        operation.getLabel(),
+                        true,
+                        false,
+                        "",
+                        pin -> {
+                            cloudSign(type, new SecureData(pin.getBytes()));
                 });
             }
 
         } else {
-            acquirePassword(false, false, "", pin -> {
-                localSign(type, new SecureData(pin.getBytes()));
+            acquirePassword(requireContext(),
+                    operation.getLabel(),
+                    false,
+                    false,
+                    "",
+                    pin -> {
+                        localSign(type, new SecureData(pin.getBytes()));
             });
         }
     }
@@ -278,54 +288,6 @@ public class LoginFragment extends DataBindingFragment<FragmentLoginBinding> imp
                 .show();
     }
 
-    private void acquirePassword(boolean pinMode, boolean confirmPassword, String initialPassword, Consumer<String> completion) {
-        ObservableField<String> pwd1 = new ObservableField<String>();
-        ObservableField<String> pwd2 = new ObservableField<String>();
-
-        AlertPasswordBinding binding =
-                AlertPasswordBinding.inflate(LayoutInflater.from(requireContext()));
-
-        binding.setPassword1(pwd1);
-        binding.setPassword2(pwd2);
-        binding.setConfirmPassword(confirmPassword);
-        binding.setPinMode(pinMode);
-
-        AlertDialog alert = new AlertDialog.Builder(requireContext())
-                .setTitle("전자서명")
-                .setView(binding.getRoot())
-                .setPositiveButton(android.R.string.ok, (dialog, which) -> completion.accept(pwd1.get()))
-                .setNegativeButton(android.R.string.cancel, (dialog, which) -> {})
-                .create();
-
-        if (confirmPassword) {
-            Observable.OnPropertyChangedCallback onPwdChanged = new Observable.OnPropertyChangedCallback() {
-                @Override
-                public void onPropertyChanged(Observable sender, int propertyId) {
-                    String pwd = pwd1.get();
-                    boolean ok = pwd != null && pwd.length() > 0 && pwd.equals(pwd2.get());
-                    alert.getButton(AlertDialog.BUTTON_POSITIVE).setEnabled(ok);
-                }
-            };
-            pwd1.addOnPropertyChangedCallback(onPwdChanged);
-            pwd2.addOnPropertyChangedCallback(onPwdChanged);
-        } else {
-            Observable.OnPropertyChangedCallback onPwdChanged = new Observable.OnPropertyChangedCallback() {
-                @Override
-                public void onPropertyChanged(Observable sender, int propertyId) {
-                    String pwd = pwd1.get();
-                    boolean ok = pwd != null && pwd.length() > 0;
-                    alert.getButton(AlertDialog.BUTTON_POSITIVE).setEnabled(ok);
-                }
-            };
-            pwd1.addOnPropertyChangedCallback(onPwdChanged);
-        }
-
-        alert.show();
-
-        pwd1.set(initialPassword);
-        pwd2.set(initialPassword);
-    }
-
     @Override
     public void onAuthenticationError(int i, CharSequence charSequence) {
         dismissLoading();
@@ -335,9 +297,14 @@ public class LoginFragment extends DataBindingFragment<FragmentLoginBinding> imp
                     .setTitle("생체 인증 실패")
                     .setMessage("인증서의 PIN이 변경되어 등록된 생체인증을 해지합니다.\n확인을 누르시면 재등록을 진행합니다.")
                     .setPositiveButton(android.R.string.ok, (dialog, which) -> {
-                        acquirePassword(true, false, "", pin -> {
-                            showLoading();
-                            bio.addBioCloud(certificates.get(certificateIndex).getId(), new SecureData(pin.getBytes()));
+                        acquirePassword(requireContext(),
+                                operation.getLabel(),
+                                true,
+                                false,
+                                "",
+                                pin -> {
+                                    showLoading();
+                                    bio.addBioCloud(certificates.get(certificateIndex).getId(), new SecureData(pin.getBytes()));
                         });
                     })
                     .setNegativeButton(android.R.string.cancel, null)

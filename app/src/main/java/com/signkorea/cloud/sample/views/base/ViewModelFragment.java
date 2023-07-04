@@ -1,5 +1,6 @@
 package com.signkorea.cloud.sample.views.base;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.view.View;
 
@@ -8,8 +9,6 @@ import androidx.annotation.Nullable;
 import androidx.databinding.ViewDataBinding;
 import androidx.lifecycle.ViewModel;
 import androidx.lifecycle.ViewModelProvider;
-
-import com.signkorea.cloud.sample.views.base.DataBindingFragment;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -22,6 +21,11 @@ public abstract class ViewModelFragment<BindingT extends ViewDataBinding, ViewMo
 
     public ViewModelT getViewModel() {
         return viewModel;
+    }
+
+    @Override
+    public void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
     }
 
     @SuppressWarnings({"unchecked", "ConstantConditions"})

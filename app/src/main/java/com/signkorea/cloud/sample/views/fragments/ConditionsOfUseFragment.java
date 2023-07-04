@@ -93,7 +93,7 @@ public class ConditionsOfUseFragment extends DataBindingFragment<FragmentConditi
             }
         });
 
-        onAgree = getInterFragmentStore().accept(
+        onAgree = getInterFragmentStore().remove(
             R.id.conditionsOfUseFragment,
             InterFragmentStore.MO_ACTION_CONFIRM);
 
@@ -131,13 +131,13 @@ public class ConditionsOfUseFragment extends DataBindingFragment<FragmentConditi
     }
 
     private void cancel() {
-        getInterFragmentStore().<Runnable>accept(R.id.conditionsOfUseFragment, InterFragmentStore.MO_API_CANCEL).run();
-        getInterFragmentStore().<Runnable>peek(InterFragmentStore.MO_ACTION_CANCEL).run();
+        getInterFragmentStore().<Runnable>remove(R.id.conditionsOfUseFragment, InterFragmentStore.MO_API_CANCEL).run();
+        getInterFragmentStore().<Runnable>remove(InterFragmentStore.MO_ACTION_CANCEL).run();
     }
 
     @Override
     public void onDestroy() {
         super.onDestroy();
-        getInterFragmentStore().accept(R.id.conditionsOfUseFragment, InterFragmentStore.MO_API_CANCEL);
+        getInterFragmentStore().remove(R.id.conditionsOfUseFragment, InterFragmentStore.MO_API_CANCEL);
     }
 }
