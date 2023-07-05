@@ -33,9 +33,6 @@
         android:label="계정 관리"
         tools:layout="@layout/fragment_account_management">
         <action
-            android:id="@+id/action_accountManagementFragment_to_connectHistoryFragment"
-            app:destination="@id/connectHistoryFragment" />
-        <action
             android:id="@+id/action_accountManagementFragment_to_autoConnectionDevicesFragment"
             app:destination="@id/autoConnectionDevicesFragment" />
         <action
@@ -57,9 +54,6 @@
         <action
             android:id="@+id/action_certificateManagementFragment_to_issueCertificateFragment"
             app:destination="@id/issueCertificateFragment"/>
-        <action
-            android:id="@+id/action_certificateManagementFragment_to_certificateHistoryFragment"
-            app:destination="@id/certificateHistoryFragment" />
     </fragment>
 
     <fragment
@@ -67,12 +61,6 @@
         android:name="com.signkorea.cloud.sample.views.fragments.AutoConnectionDevicesFragment"
         android:label="자동 연결"
         tools:layout="@layout/fragment_auto_connection_devices" />
-
-    <fragment
-        android:id="@+id/connectHistoryFragment"
-        android:name="com.signkorea.cloud.sample.views.fragments.ConnectHistoryFragment"
-        android:label="연결 내역"
-        tools:layout="@layout/fragment_connect_history" />
 
     <fragment
         android:id="@+id/secureSettingFragment"
@@ -89,12 +77,6 @@
             android:defaultValue="get"
             app:argType="com.signkorea.cloud.sample.enums.CertificateOperation" />
     </fragment>
-
-    <fragment
-        android:id="@+id/certificateHistoryFragment"
-        android:name="com.signkorea.cloud.sample.views.fragments.CertificateHistoryFragment"
-        android:label="인증서 이용 내역"
-        tools:layout="@layout/fragment_certificate_history" />
 
     <fragment
         android:id="@+id/issueCertificateFragment"
