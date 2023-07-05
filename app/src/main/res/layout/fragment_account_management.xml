@@ -21,7 +21,7 @@
                 android:id="@+id/autoConnectDevicesButton"
                 android:layout_width="match_parent"
                 android:layout_height="50dp"
-                android:text="자동 연결 조회 및 해제"
+                android:text="자동 연결 매체 조회 및 해제"
                 android:backgroundTint="#E65619"
                 android:insetTop="0dp"
                 android:insetBottom="0dp"

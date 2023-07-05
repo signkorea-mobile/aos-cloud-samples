@@ -3,7 +3,6 @@ package com.signkorea.cloud.sample.views.fragments;
 import android.annotation.SuppressLint;
 import android.app.AlertDialog;
 import android.os.Bundle;
-import android.util.Log;
 import android.view.View;
 
 import androidx.activity.OnBackPressedCallback;
@@ -24,6 +23,7 @@ import lombok.val;
 public class PhoneNumberAuthenticationV1Fragment extends DataBindingFragment<FragmentPhoneNumberAuthenticationV1Binding> {
     private PhoneNumberProofTransaction transaction;
     private Timer timer = null;
+    private Runnable confirmAction = null;
 
     @SuppressWarnings("ConstantConditions")
     @Override
@@ -46,17 +46,12 @@ public class PhoneNumberAuthenticationV1Fragment extends DataBindingFragment<Fra
             R.id.phoneNumberAuthenticationV1Fragment,
             InterFragmentStore.MO_API_TRANSACTION);
 
-        Runnable confirmAction = getInterFragmentStore().remove(
+        confirmAction = getInterFragmentStore().remove(
             R.id.phoneNumberAuthenticationV1Fragment,
             InterFragmentStore.MO_ACTION_CONFIRM);
 
         // 확인
         getBinding().confirmButton.setEnabled(false);
-        getBinding().confirmButton.setOnClickListener(button -> {
-            //noinspection ConstantConditions
-            Log.e(TAG, "confirm");  // TODO
-            confirmAction.run();
-        });
 
         // 취소
         getBinding().cancelButton.setOnClickListener(button -> cancel());
@@ -87,8 +82,8 @@ public class PhoneNumberAuthenticationV1Fragment extends DataBindingFragment<Fra
             } break;
 
             case Complete: {
-                // TODO
-                getBinding().confirmButton.callOnClick();
+                // MO인증이 완료된 경우 후속 진행 처리
+                confirmAction.run();
             } break;
 
             case Canceled:
@@ -106,33 +101,39 @@ public class PhoneNumberAuthenticationV1Fragment extends DataBindingFragment<Fra
                 return true;
 
             case AuthCodeDoesNotMatch: {
-                @SuppressLint("DefaultLocale")
-                val message = String.format(
-                    "인증코드가 일치하지 않습니다. 정확한 인증코드를 전송해 주시기 바랍니다.\n[%d/5]",
-                    mismatchCount);
+                requireActivity().runOnUiThread(() -> {
+                    @SuppressLint("DefaultLocale")
+                    val message = String.format(
+                            "인증코드가 일치하지 않습니다. 정확한 인증코드를 전송해 주시기 바랍니다.\n[%d/5]",
+                            mismatchCount);
 
-                new AlertDialog.Builder(requireContext())
-                    .setMessage(message)
-                    .setPositiveButton(android.R.string.ok, (dialog, which) -> {
-                        transaction.resume();
-                        schedule();
-                    })
-                    .setNegativeButton(android.R.string.cancel, (dialog, which) -> cancel())
-                    .show();
+                    new AlertDialog.Builder(requireContext())
+                            .setMessage(message)
+                            .setPositiveButton(android.R.string.ok, (dialog, which) -> {
+                                transaction.resume();
+                                schedule();
+                            })
+                            .setNegativeButton(android.R.string.cancel, (dialog, which) -> cancel())
+                            .show();
+                });
             } break;
 
             case Timeout: {
-                new AlertDialog.Builder(requireContext())
-                    .setMessage("인증 시간이 초과되었습니다.")
-                    .setPositiveButton(android.R.string.ok, (dialog, which) -> cancel())
-                    .show();
+                requireActivity().runOnUiThread(() -> {
+                    new AlertDialog.Builder(requireContext())
+                            .setMessage("인증 시간이 초과되었습니다.")
+                            .setPositiveButton(android.R.string.ok, (dialog, which) -> cancel())
+                            .show();
+                });
             } break;
 
             case AuthCodeInvalidated: {
-                new AlertDialog.Builder(requireContext())
-                    .setMessage("인증코드 전송 횟수를 초과하였습니다.")
-                    .setPositiveButton(android.R.string.ok, (dialog, which) -> cancel())
-                    .show();
+                requireActivity().runOnUiThread(() -> {
+                    new AlertDialog.Builder(requireContext())
+                            .setMessage("인증코드 전송 횟수를 초과하였습니다.")
+                            .setPositiveButton(android.R.string.ok, (dialog, which) -> cancel())
+                            .show();
+                });
             } break;
 
             default:
@@ -175,21 +176,16 @@ public class PhoneNumberAuthenticationV1Fragment extends DataBindingFragment<Fra
                 val status = transaction.getStatus();
                 val mismatchCount = transaction.getAuthCodeMismatchCount();
 
-                requireActivity().runOnUiThread(() -> {
-                    updateTime(status);
+                requireActivity().runOnUiThread(() -> updateTime(status));
 
-                    if (!checkStatus(status, mismatchCount)) {
-                        unschedule();
-                    }
-                });
+                if (!checkStatus(status, mismatchCount))
+                    unschedule();
             }
         }, 500, 500);
     }
 
     private void unschedule() {
-        Log.e(TAG, "unschedule");
         if (timer != null) {
-            Log.e(TAG, "timer cancel");
             timer.cancel();
             timer = null;
         }

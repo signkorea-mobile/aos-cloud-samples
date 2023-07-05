@@ -143,14 +143,11 @@ public class MainActivity extends DataBindingActivity<ActivityMainBinding> imple
                                            @NonNull BiConsumer<String, String> agree,
                                            @NonNull Runnable cancel) {
         BiConsumer<String, String> confirmAction;
-        // TODO
-        Log.e(TAG, "destination = " + getNavController().getCurrentDestination().getId());
-
         if (getNavController().getCurrentDestination().getId() == R.id.userInfoFormFragment) {
             // 이용자 가입 과정에서 이벤트 발생 시
             confirmAction = agree;
         } else {
-            // TODO 약관 업데이트 처리 시 정상 동작하는지 확인해볼 것: 동의하든 취소하든 destination 화면으로 이동하게 되는 듯
+            // TODO 약관 업데이트 케이스 동작 확인
             // 약관 업데이트로 인한 이벤트 발생 시 (현재 화면 != 사용자 정보 입력 화면)
             val cancelAction = registerCancelAction();
 
@@ -172,8 +169,8 @@ public class MainActivity extends DataBindingActivity<ActivityMainBinding> imple
         if (reason == AcknowledgeConditionsOfUseReason.duplicatedUserInfo) {
             // 중복 가입 정보 처리 (생년월일+전화번호가 동일하고 이름이 다른 경우)
             new AlertDialog.Builder(this)
-                .setTitle("다른 이름으로 가입된 정보가 있습니다.")
-                .setMessage("재가입하시겠습니까? 저장된 인증서는 모두 삭제됩니다.")
+                .setTitle("재가입 안내")
+                .setMessage("다른 이름으로 가입된 정보가 있습니다. 재가입하시겠습니까?\n클라우드에 저장되어 있던 인증서는 모두 삭제됩니다.")
                 .setPositiveButton(android.R.string.ok, (dialog, which) -> acknowledgeConditionsOfUse.run())
                 .setNegativeButton(android.R.string.cancel,(dialog, which) -> getInterFragmentStore().<Runnable>remove(InterFragmentStore.MO_ACTION_CANCEL).run())
                 .show();
@@ -228,11 +225,7 @@ public class MainActivity extends DataBindingActivity<ActivityMainBinding> imple
     private Runnable registerCancelAction() {
         int destFragId = getNavController().getCurrentDestination().getId();
         Runnable cancelAction = () -> {
-            Integer nextFragId = null;//getInterFragmentStore().remove(InterFragmentStore.FALLBACK_FRAGMENT_ID);   // TODO 필요한지 확인
-            if (nextFragId == null)
-                getNavController().popBackStack(destFragId, false);
-            else
-                getNavController().popBackStack(nextFragId, false);
+            getNavController().popBackStack(destFragId, false);
             getInterFragmentStore().remove(InterFragmentStore.MO_ACTION_CANCEL);
             getSupportActionBar().show();
         };

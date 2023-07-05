@@ -98,7 +98,6 @@ public class DataBindingFragment<BindingT extends ViewDataBinding> extends Fragm
         @Nullable ViewGroup container,
         @Nullable Bundle savedInstanceState)
     {
-        Log.e(TAG, "====onCreateView====");
         binding = inflate(inflater, container);
 
         return binding.getRoot();
@@ -121,7 +120,7 @@ public class DataBindingFragment<BindingT extends ViewDataBinding> extends Fragm
     @SuppressLint("NonConstantResourceId")
     protected void alertException(@NonNull Exception exception, @Nullable String title, boolean popBackStack, @Nullable Runnable completion) {
         dismissLoading();
-        DialogInterface.OnClickListener onClickListener = (dialog, which) -> {
+        Runnable proceed = () -> {
             getNavController().popBackStack(myDestinationId, popBackStack);
 
             getInterFragmentStore().remove(InterFragmentStore.MO_ACTION_CANCEL);
@@ -133,12 +132,12 @@ public class DataBindingFragment<BindingT extends ViewDataBinding> extends Fragm
 
         val message = exceptionMapper.apply(exception);
         val builder = new AlertDialog.Builder(requireContext())
-            .setMessage(message)
-            .setPositiveButton(android.R.string.ok, onClickListener);
+                .setMessage(message)
+                .setPositiveButton(android.R.string.ok, (dialog, which) -> proceed.run())
+                .setOnCancelListener(dialog -> proceed.run());
 
-        if (title != null) {
+        if (title != null)
             builder.setTitle(title);
-        }
 
         builder.show();
     }
@@ -330,15 +329,8 @@ public class DataBindingFragment<BindingT extends ViewDataBinding> extends Fragm
 
         alert.show();
 
-        // TODO DEBUG
-        if(pinMode)
-            initialPassword = "121212";
-        else
-            initialPassword = "1q2w3e4r!!";
-
         pwd1.set(initialPassword);
         pwd2.set(initialPassword);
-
     }
 
     protected void acquirePassword(Context context,
@@ -408,6 +400,7 @@ public class DataBindingFragment<BindingT extends ViewDataBinding> extends Fragm
         startActivityForResult(intent, BillActivity.ID);
     }
 
+    // 전환 발급/갱신이 중 PIN 입력을 취소하는 경우 이벤트 발생
     @Override
     public void showStatus(@NonNull KSCertificateManagerExt.Status status,
                            @NonNull String message,
@@ -425,14 +418,14 @@ public class DataBindingFragment<BindingT extends ViewDataBinding> extends Fragm
 
             default:
                 title = "";
-                assert false: "정의되지 않은 인증서 전환 발급/갱신 프로세스입니다.";
+                assert false: "정의되지 않은 클라우드 전환 발급/갱신 프로세스입니다.";
         }
 
         new AlertDialog.Builder(requireContext())
                 .setTitle(title)
                 .setMessage(message)
-                .setPositiveButton(android.R.string.ok, (dialog, which) -> complete.run()) // 전환 발급/갱신을 진행
-                .setNegativeButton(android.R.string.cancel, (dialog, which) -> cancel.run()) // 전환 발급/갱신을 취소
+                .setPositiveButton(android.R.string.ok, (dialog, which) -> complete.run()) // 클라우드 저장 없이 로컬 발급/갱신 진행
+                .setNegativeButton(android.R.string.cancel, (dialog, which) -> cancel.run()) // 발급/갱신 취소
                 .show();
 
     }

@@ -121,7 +121,7 @@ public class ConditionsOfUseFragment extends DataBindingFragment<FragmentConditi
                         .setTitle("약관 개정 안내")
                         .setMessage("개정된 약관에 동의하신 후 서비스를 이용하실 수 있습니다.")
                         .setPositiveButton(android.R.string.ok, null)
-                        .setNegativeButton(android.R.string.cancel, (dialog, which) -> cancel())
+                        .setNegativeButton(android.R.string.cancel, (dialog, which) -> ConditionsOfUseFragment.this.cancel())
                         .show();
                 } else {
                     cancel();
