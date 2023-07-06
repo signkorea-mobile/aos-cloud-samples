@@ -24,6 +24,7 @@ import com.signkorea.cloud.sample.databinding.ItemCertificateBinding;
 import com.signkorea.cloud.sample.enums.CertificateOperation;
 import com.signkorea.cloud.sample.enums.SignMenuType;
 import com.signkorea.cloud.sample.utils.OnceRunnable;
+import com.signkorea.cloud.sample.utils.SimpleSharedPreferences;
 import com.signkorea.cloud.sample.viewModels.CertificateListFragmentViewModel;
 import com.signkorea.cloud.sample.viewModels.InterFragmentStore;
 import com.signkorea.cloud.sample.views.base.ViewModelFragment;
@@ -178,8 +179,11 @@ public class CloudCertificateListFragment extends ViewModelFragment<FragmentClou
     }
 
     private void getCertificateIndex(int position) {
+        // 선택된 인증서 정보 저장
+        KSCertificateExt selectedCert = getViewModel().getCertificates().get(position);
+        SimpleSharedPreferences.getInstance(requireContext()).edit().certDn(selectedCert.getSubject()).commit();
+
         NavDirections directions = CloudCertificateListFragmentDirections.actionCloudCertificateListFragmentToLoginFragment()
-                .setCertificateIndex(position)
                 .setOperation(operation)
                 .setSignMenuType(menuType);
         getNavController().navigate(directions);

@@ -19,12 +19,6 @@
         <action
             android:id="@+id/action_homeFragment_to_LoginFragment"
             app:destination="@id/loginFragment" />
-
-        <argument
-            android:name="certificateIndex"
-            android:defaultValue="-1"
-            app:argType="integer" />
-
     </fragment>
 
     <fragment
@@ -119,10 +113,6 @@
             android:id="@+id/action_LoginFragment_to_cloudCertificateListFragment"
             app:popUpTo="@id/loginFragment"
             app:destination="@id/cloudCertificateListFragment" />
-        <argument
-            android:name="certificateIndex"
-            android:defaultValue="-1"
-            app:argType="integer" />
         <argument
             android:name="operation"
             android:defaultValue="get"

@@ -57,7 +57,6 @@ public class UserInfoFormFragment extends ViewModelFragment<FragmentUserInfoForm
             } catch (ParseException e) {
                 throw new RuntimeException(e);
             }
-            boolean autoConnect = getViewModel().autoConnection.get();
 
             String message;
             if (userName.isEmpty()) {
@@ -85,17 +84,17 @@ public class UserInfoFormFragment extends ViewModelFragment<FragmentUserInfoForm
                 .userName(userName)
                 .phoneNumber(phoneNumber)
                 .birthday(birthday)
-                .authConnect(autoConnect)
                 .commit();
 
             //noinspection ConstantConditions
-            userInfoAcceptor.consume(userName, phoneNumber, birthday, autoConnect);
+            userInfoAcceptor.consume(userName,
+                    phoneNumber,
+                    birthday,
+                    true);  // 모바일 환경에서 자동연결은 활성화하는 것을 권장합니다.
         });
 
         // 취소
-        getBinding().cancelButton.setOnClickListener(button -> {
-            cancel();
-        });
+        getBinding().cancelButton.setOnClickListener(button -> cancel());
     }
 
     private void cancel() {

@@ -5,13 +5,13 @@ import android.os.Bundle;
 import android.util.Base64;
 import android.util.Log;
 import android.view.View;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.navigation.NavDirections;
 import androidx.navigation.Navigation;
 
-import com.lumensoft.ks.KSCertificate;
 import com.lumensoft.ks.KSException;
 import com.lumensoft.ks.KSSign;
 import com.signkorea.cloud.Bio;
@@ -21,6 +21,7 @@ import com.signkorea.cloud.sample.databinding.FragmentLoginBinding;
 import com.signkorea.cloud.sample.enums.CertificateOperation;
 import com.signkorea.cloud.sample.enums.SignMenuType;
 import com.signkorea.cloud.sample.utils.OnceRunnable;
+import com.signkorea.cloud.sample.utils.SimpleSharedPreferences;
 import com.signkorea.cloud.sample.views.base.DataBindingFragment;
 import com.signkorea.securedata.ProtectedData;
 import com.signkorea.securedata.SecureData;
@@ -35,7 +36,7 @@ import java.util.stream.Collectors;
 
 public class LoginFragment extends DataBindingFragment<FragmentLoginBinding> implements Bio.Callback{
     @Nullable
-    private int certificateIndex = -1;    // 선택된 인증서 index
+    private KSCertificateExt selectedCert = null;
 
     private CertificateOperation operation = CertificateOperation.get;
     private SignMenuType menuType;
@@ -69,11 +70,21 @@ public class LoginFragment extends DataBindingFragment<FragmentLoginBinding> imp
 
             this.certificates = certificates.stream().filter(certificateFilter).collect(Collectors.toList());
 
-            certificateIndex = LoginFragmentArgs.fromBundle(getArguments()).getCertificateIndex();
+            // 이전에 사용했던 인증서 SubjectDn 조회 후 로딩한 인증서 목록에서 조회
+            String selectedSubjectDn = SimpleSharedPreferences.getInstance(requireContext()).getCertDn();
+            selectedCert = this.certificates.stream()
+                    .filter(cert -> cert.getSubject().equals(selectedSubjectDn))
+                    .findFirst()
+                    .orElse(null);
+
             getBinding().authTypeBtnFinger.setVisibility(View.INVISIBLE);
 
-            if (certificateIndex >= 0) {
-                getBinding().selectdnText.setText(this.certificates.get(certificateIndex).getSubject());
+            if (selectedCert == null) {
+                // 이전에 사용한 인증서가 없는 경우 선택 인증서 정보 초기화
+                SimpleSharedPreferences.getInstance(requireContext()).edit().certDn("");
+            }
+            else {
+                getBinding().selectdnText.setText(selectedCert.getSubject());
                 getBinding().authTypeBtnPin.setVisibility(View.VISIBLE);
 
                 menuType = LoginFragmentArgs.fromBundle(getArguments()).getSignMenuType();
@@ -94,9 +105,8 @@ public class LoginFragment extends DataBindingFragment<FragmentLoginBinding> imp
                         break;
                 }
 
-                if (this.certificates.get(certificateIndex).isCloud()) {
-                    String id = this.certificates.get(certificateIndex).getCertInfo().getId();
-                    if (bio.isBio(id)) {
+                if (selectedCert.isCloud()) {
+                    if (bio.isBio(selectedCert.getId())) {
                         getBinding().deleteBio.setVisibility(View.VISIBLE);
                     }
                 }
@@ -128,13 +138,17 @@ public class LoginFragment extends DataBindingFragment<FragmentLoginBinding> imp
     }
 
     private void sign(Bio.OPERATION type) {
-        if (this.certificates.get(certificateIndex).isCloud()) {
+        if(selectedCert == null) {
+            Toast.makeText(requireContext(), "인증서 선택 후 진행해주세요.", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        if (selectedCert.isCloud()) {
             if(getBinding().authTypeBtnFinger.isChecked())
             {
-                String id = this.certificates.get(certificateIndex).getCertInfo().getId();
-                if (bio.isBio(id)) {
+                if (bio.isBio(selectedCert.getId())) {
                     showLoading();
-                    bio.getBioCloud(id, type);
+                    bio.getBioCloud(selectedCert.getId(), type);
                 } else {
                     new AlertDialog.Builder(requireActivity())
                             .setTitle("생체 인증 등록")
@@ -147,7 +161,7 @@ public class LoginFragment extends DataBindingFragment<FragmentLoginBinding> imp
                                         "",
                                         pin -> {
                                             showLoading();
-                                            bio.addBioCloud(id, new SecureData(pin.getBytes()));
+                                            bio.addBioCloud(selectedCert.getId(), new SecureData(pin.getBytes()));
                                 });
                             })
                             .setNegativeButton(android.R.string.cancel, null)
@@ -179,6 +193,11 @@ public class LoginFragment extends DataBindingFragment<FragmentLoginBinding> imp
     }
 
     private void cloudSign(Bio.OPERATION type, ProtectedData encryptedPin){
+        if(selectedCert == null) {
+            Toast.makeText(requireContext(), "인증서 선택 후 진행해주세요.", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
         Consumer<byte[]> completion = signature -> {
             dismissLoading();
             encryptedPin.clear();
@@ -208,19 +227,18 @@ public class LoginFragment extends DataBindingFragment<FragmentLoginBinding> imp
 
         byte[] plain = "sign plain".getBytes();
 
-        KSCertificateExt cert = certificates.get(certificateIndex);
         showLoading();
         switch (type) {
             case KOSCOMCMSSIGN:
-                certMgr.koscomCMSSign(cert.getId(), plain, encryptedPin, completion, onError);
+                certMgr.koscomCMSSign(selectedCert.getId(), plain, encryptedPin, completion, onError);
                 break;
 
             case KOSCOMBRIEFSIGN:
-                certMgr.koscomBriefSign(cert.getId(), plain, encryptedPin, completion, onError);
+                certMgr.koscomBriefSign(selectedCert.getId(), plain, encryptedPin, completion, onError);
                 break;
 
             case GETRANDOM:
-                certMgr.getRandom(cert.getId(), encryptedPin, getRandomCompletion, onError);
+                certMgr.getRandom(selectedCert.getId(), encryptedPin, getRandomCompletion, onError);
                 break;
 
             default:
@@ -230,18 +248,22 @@ public class LoginFragment extends DataBindingFragment<FragmentLoginBinding> imp
     }
 
     private void localSign (Bio.OPERATION type, ProtectedData encryptedPin) {
+        if(selectedCert == null) {
+            Toast.makeText(requireContext(), "인증서 선택 후 진행해주세요.", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
         byte[] plain = "sign plain".getBytes();
 
-        KSCertificate cert = this.certificates.get(certificateIndex).cert;
         byte[] signature = null;
         try {
             switch (type) {
                 case KOSCOMCMSSIGN:
-                    signature = KSSign.sign(KSSign.KOSCOM, cert, plain, encryptedPin);
+                    signature = KSSign.sign(KSSign.KOSCOM, selectedCert.cert, plain, encryptedPin);
                     break;
 
                 case KOSCOMBRIEFSIGN:
-                    signature = KSSign.sign(KSSign.KOSCOM_BRIEF, cert, plain, encryptedPin);
+                    signature = KSSign.sign(KSSign.KOSCOM_BRIEF, selectedCert.cert, plain, encryptedPin);
                     break;
 
                 default:
@@ -268,8 +290,13 @@ public class LoginFragment extends DataBindingFragment<FragmentLoginBinding> imp
     }
 
     private void removeBio() {
+        if(selectedCert == null) {
+            Toast.makeText(requireContext(), "인증서 선택 후 진행해주세요.", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
         String title = "생체 인증 삭제", message = null;
-        String id = this.certificates.get(certificateIndex).getCertInfo().getId();
+        String id = selectedCert.getCertInfo().getId();
         if (bio.isBio(id)) {
             bio.removeBioCloud(id);
             message = "등록된 생체 인증을 삭제하였습니다.";
@@ -304,7 +331,7 @@ public class LoginFragment extends DataBindingFragment<FragmentLoginBinding> imp
                                 "",
                                 pin -> {
                                     showLoading();
-                                    bio.addBioCloud(certificates.get(certificateIndex).getId(), new SecureData(pin.getBytes()));
+                                    bio.addBioCloud(selectedCert.getId(), new SecureData(pin.getBytes()));
                         });
                     })
                     .setNegativeButton(android.R.string.cancel, null)

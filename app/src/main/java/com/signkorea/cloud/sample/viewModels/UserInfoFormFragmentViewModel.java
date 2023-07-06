@@ -22,8 +22,6 @@ public class UserInfoFormFragmentViewModel extends ViewModel  {
     public final ObservableField<String> userName = new ObservableField<>();
     public final ObservableField<String> phoneNumber = new ObservableField<>();
     public final ObservableField<String> birthdayText = new ObservableField<>();
-    public final ObservableBoolean autoConnection = new ObservableBoolean();
-
     public Calendar birthday = Calendar.getInstance();
 
     public void init(Context context) {
@@ -32,8 +30,6 @@ public class UserInfoFormFragmentViewModel extends ViewModel  {
 
         userName.set(sharedPref.getUserName());
         phoneNumber.set(sharedPref.getPhoneNumber());
-        autoConnection.set(sharedPref.getAutoConnect());
-
         setBirthday(sharedPref.getBirthday());
     }
 

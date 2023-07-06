@@ -7,7 +7,6 @@ import android.content.Intent;
 import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
 import android.os.Bundle;
-import android.util.Log;
 import android.view.MenuItem;
 import android.widget.ProgressBar;
 import android.widget.Toast;
@@ -22,6 +21,7 @@ import androidx.navigation.fragment.NavHostFragment;
 import androidx.navigation.ui.AppBarConfiguration;
 import androidx.navigation.ui.NavigationUI;
 
+import com.signkorea.cloud.sample.BuildConfig;
 import com.signkorea.cloud.sample.R;
 import com.signkorea.cloud.sample.databinding.ActivityMainBinding;
 import com.signkorea.cloud.sample.enums.CertificateOperation;
@@ -78,7 +78,6 @@ public class MainActivity extends DataBindingActivity<ActivityMainBinding> imple
                     actionBar.setTitle(operation.getLabel());
                 });
             }
-
         });
 
         loadingPopup = new Dialog(this);
@@ -86,6 +85,8 @@ public class MainActivity extends DataBindingActivity<ActivityMainBinding> imple
         loadingPopup.setContentView(new ProgressBar(this));
         loadingPopup.setCanceledOnTouchOutside(false);
         loadingPopup.setOnCancelListener(null);
+
+        getSupportActionBar().setSubtitle("v" + BuildConfig.VERSION_NAME);
     }
 
     @Override

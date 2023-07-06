@@ -7,12 +7,22 @@ android {
     compileSdkVersion 33
     buildToolsVersion "30.0.3"
 
+    // 앱 버전 관리: version.properties
+    def versionPropsFile = file('../version.properties')
+    def versionProps = new Properties()
+    def vname = '1.0.0'
+    def code = 1
+
+    versionProps.load(new FileInputStream(versionPropsFile))
+    vname = versionProps['VERSION_MAJOR'] + "." + versionProps['VERSION_MINOR'] + "." + versionProps['VERSION_PATCH']
+    code = Integer.valueOf(versionProps['VERSION_CODE'])
+
     defaultConfig {
         applicationId "com.signkorea.cloud.sample"
         minSdkVersion 23
         targetSdkVersion 33
-        versionCode 1
-        versionName "1.0"
+        versionCode code
+        versionName vname
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
