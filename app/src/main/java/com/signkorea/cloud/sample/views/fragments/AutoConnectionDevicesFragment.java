@@ -10,13 +10,11 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.recyclerview.widget.RecyclerView;
 
-import com.signkorea.cloud.sample.views.base.ViewModelFragment;
 import com.signkorea.cloud.sample.databinding.FragmentAutoConnectionDevicesBinding;
 import com.signkorea.cloud.sample.databinding.ItemAutoConnectDeviceBinding;
 import com.signkorea.cloud.sample.utils.OnceRunnable;
 import com.signkorea.cloud.sample.viewModels.AutoConnectionDevicesFragmentViewModel;
-import com.yettiesoft.cloud.Client;
-import com.yettiesoft.cloud.InvalidLicenseException;
+import com.signkorea.cloud.sample.views.base.ViewModelFragment;
 import com.yettiesoft.cloud.models.AutoConnectDevice;
 
 import java.time.ZoneId;
@@ -35,13 +33,6 @@ public class AutoConnectionDevicesFragment extends
     private final Adapter adapter = new Adapter();
 
     private final OnceRunnable loadData = new OnceRunnable(() -> {
-        try {
-            getViewModel().init(requireContext().getApplicationContext(), (Client.Delegate)requireActivity());
-        } catch (InvalidLicenseException exception) {
-            alertException(exception, true);
-            return;
-        }
-
         showLoading();
         getViewModel().loadData(() -> {
                     dismissLoading();
@@ -65,9 +56,15 @@ public class AutoConnectionDevicesFragment extends
     }
 
     private void onItemClick(int position) {
+        String message;
+        if(getViewModel().isCurrentDevice(position))
+            message = "현재 기기의 연결이 해제됩니다.\n진행하시겠습니까?";
+        else
+            message = "선택하신 매체의 자동연결을 해제하시겠습니까?";
+
         new AlertDialog.Builder(requireContext())
-            .setTitle("자동 연결 매체 삭제")
-            .setMessage("선택한 자동 연결 매체를 삭제 하시겠습니까?")
+            .setTitle("자동 연결 매체 해제")
+            .setMessage(message)
             .setPositiveButton(android.R.string.ok, (dialog, which) -> removeItem(position))
             .setNegativeButton(android.R.string.cancel,(dialog, which) -> {})
             .show();
@@ -84,8 +81,7 @@ public class AutoConnectionDevicesFragment extends
             }
         };
 
-        Consumer<Exception> onError = exception -> alertException(exception, "자동 연결 삭제");
-
+        Consumer<Exception> onError = exception -> alertException(exception, "자동 연결 해제");
         showLoading();
         getViewModel().removeItem(position, onItemDeleted, onError);
     }
@@ -162,7 +158,7 @@ public class AutoConnectionDevicesFragment extends
 
         @Override
         public int getItemCount() {
-            return getViewModel().getDevices().size();
+            return getViewModel().getDevices() == null ? 0 : getViewModel().getDevices().size();
         }
     }
 }

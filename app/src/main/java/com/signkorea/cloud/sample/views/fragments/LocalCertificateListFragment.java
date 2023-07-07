@@ -19,47 +19,37 @@ import com.lumensoft.ks.KSException;
 import com.signkorea.certmanager.BillActivity;
 import com.signkorea.cloud.Bio;
 import com.signkorea.cloud.KSCertificateExt;
-import com.signkorea.cloud.KSCertificateManagerExt;
 import com.signkorea.cloud.sample.R;
 import com.signkorea.cloud.sample.databinding.FragmentLocalCertificateListBinding;
 import com.signkorea.cloud.sample.databinding.ItemCertificateBinding;
 import com.signkorea.cloud.sample.enums.CertificateOperation;
-import com.signkorea.cloud.sample.utils.OnceRunnable;
+import com.signkorea.cloud.sample.models.CloudRepository;
+import com.signkorea.cloud.sample.utils.PasswordDialog;
 import com.signkorea.cloud.sample.viewModels.CertificateListFragmentViewModel;
 import com.signkorea.cloud.sample.viewModels.InterFragmentStore;
 import com.signkorea.cloud.sample.views.base.ViewModelFragment;
 import com.signkorea.securedata.ProtectedData;
 import com.signkorea.securedata.SecureData;
-import com.yettiesoft.cloud.Client;
 import com.yettiesoft.cloud.IncorrectPasscodeException;
 
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.format.FormatStyle;
-import java.util.ArrayList;
 import java.util.Hashtable;
-import java.util.List;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
-import java.util.function.Predicate;
-import java.util.stream.Collectors;
 
 import lombok.val;
 
 public class LocalCertificateListFragment
     extends ViewModelFragment<FragmentLocalCertificateListBinding, CertificateListFragmentViewModel> implements Bio.Callback
 {
-    private String opp = null;
+    private CloudRepository repo = CloudRepository.getInstance();
+
     private CertificateOperation operation = CertificateOperation.get;
 
     private final Adapter adapter = new Adapter();
-
-    private final KSCertificateManagerExt certMgr = new KSCertificateManagerExt();
-    private List<KSCertificateExt> certificates = new ArrayList<>();
-
-    private int updatePosition = -1;
-    private String updatePin = null;
 
     private String code = null;
     private String message = null;
@@ -68,16 +58,7 @@ public class LocalCertificateListFragment
 
     private String dn = null;
 
-    private final OnceRunnable loadData = new OnceRunnable(() -> {
-        try {
-            getViewModel().init(requireContext().getApplicationContext(),
-                    (Client.Delegate)requireActivity(),
-                    this);
-        } catch (Exception exception) {
-            alertException(exception, operation.getLabel(), true);
-            return;
-        }
-
+    private void refresh() {
         Consumer<Exception> onError = exception -> alertException(exception, operation.getLabel(), true);
 
         @SuppressLint("NotifyDataSetChanged")
@@ -111,9 +92,8 @@ public class LocalCertificateListFragment
         };
 
         showLoading();
-        getViewModel().setDataSource(CertificateListFragmentViewModel.DataSource.local)
-                .loadData(completion, onError, null);
-    });
+        getViewModel().loadData(CloudRepository.DataSource.local, null, completion, onError);
+    }
 
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
@@ -127,7 +107,7 @@ public class LocalCertificateListFragment
     @Override
     public void onResume() {
         super.onResume();
-        loadData.run();
+        refresh();
     }
 
     private void onItemClick(int position) {
@@ -156,44 +136,30 @@ public class LocalCertificateListFragment
                     .setMessage(cert.getSubject() + "\n추가로 생체정보 등록을 진행 하시겠습니까?")
                     .setPositiveButton(android.R.string.ok, (dialog, which) -> {
                         try {
-                            bio = new Bio(requireActivity(), this.certMgr);
+                            bio = new Bio(requireActivity(), repo.getCertMgr());
                             bio.setCallback(this);
-                            Predicate<KSCertificateExt> certificateFilter = certInfo -> true;
-                            certMgr.getUserCertificateListCloud(certificates -> {
-                                this.certificates = certificates.stream().filter(certificateFilter).collect(Collectors.toList());
-                                for (int i = 0; i < this.certificates.size(); i++) {
-                                    if (this.certificates.get(i).getSubject().equals(dn)) {
-                                        String id = this.certificates.get(i).getCertInfo().getId();
+                            repo.loadCertificates(CloudRepository.DataSource.remote,
+                                    () -> {
+                                        KSCertificateExt registeredCert = repo.getCertificates().stream().filter(c -> c.getSubject().equalsIgnoreCase(dn)).findFirst().orElse(null);
+                                        if(registeredCert != null) {
+                                            String id = registeredCert.getId();
+                                            if(bio.isBio(id)) {
+                                                bio.removeBioCloud(id);
 
-                                        if (bio.isBio(id)) {
-                                            bio.removeBioCloud(id);
-                                            acquirePassword(requireContext(),
-                                                    operation.getLabel(),
-                                                    true,
-                                                    false,
-                                                    "",
-                                                    pin -> {
-                                                        bio.addBioCloud(id, new SecureData(pin.getBytes()));
-                                            });
-                                        } else {
-                                            acquirePassword(requireContext(),
-                                                    operation.getLabel(),
-                                                    true,
-                                                    false,
-                                                    "",
-                                                    pin -> {
-                                                        bio.addBioCloud(id, new SecureData(pin.getBytes()));
-                                            });
+                                                PasswordDialog.show(requireContext(),
+                                                        operation.getLabel(),
+                                                        true,
+                                                        false,
+                                                        "",
+                                                        pin -> bio.addBioCloud(id, new SecureData(pin.getBytes())),
+                                                        this::dismissLoading);
+                                            }
                                         }
-                                    }
-                                }
-                            }, e -> {
-                                new AlertDialog.Builder(requireContext())
-                                        .setTitle("인증서 목록 로딩 실패")
-                                        .setMessage(e.toString())
-                                        .setPositiveButton(android.R.string.ok, null)
-                                        .show();
-                                });
+                                    }, e -> new AlertDialog.Builder(requireContext())
+                                            .setTitle("인증서 목록 로딩 실패")
+                                            .setMessage(e.toString())
+                                            .setPositiveButton(android.R.string.ok, null)
+                                            .show());
                         }
                         catch (Exception e)
                         {
@@ -236,17 +202,19 @@ public class LocalCertificateListFragment
                 onError);
         };
 
-        acquirePassword(requireContext(),
+        PasswordDialog.show(requireContext(),
                 operation.getLabel(),
                 false,
                 false,
                 "",
-                password -> acquirePassword(requireContext(),
+                password -> PasswordDialog.show(requireContext(),
                                                 operation.getLabel(),
                                                 true,
                                                 true,
                                                 "",
-                                                pin -> onPasswordAcquired.accept(password, pin)));
+                                                pin -> onPasswordAcquired.accept(password, pin),
+                                                this::dismissLoading),
+                this::dismissLoading);
     }
 
     @Override
@@ -277,26 +245,24 @@ public class LocalCertificateListFragment
                             dismissLoading();
                             adapter.notifyDataSetChanged();
                         };
-                        getViewModel().setDataSource(CertificateListFragmentViewModel.DataSource.local)
-                                .loadData(onLoadingComplete, onLoadingError, null);
+                        getViewModel().loadData(CloudRepository.DataSource.local, null, true, onLoadingComplete, onLoadingError);
                     }
                 })
                 .show());
         };
 
         Consumer<String> onPasswordAcquired = (pin) -> {
-            updatePosition = position;
-            updatePin = pin;
             getViewModel().updateCertificate(position, pin, completion);
         };
 
         showLoading();
-        acquirePassword(requireContext(),
+        PasswordDialog.show(requireContext(),
                 operation.getLabel(),
                 false,
                 false,
                 "",
-                pwd -> onPasswordAcquired.accept(pwd));
+                pwd -> onPasswordAcquired.accept(pwd),
+                this::dismissLoading);
     }
 
     class Adapter extends RecyclerView.Adapter<ItemView> {
@@ -322,7 +288,7 @@ public class LocalCertificateListFragment
 
         @Override
         public int getItemCount() {
-            return getViewModel().getCertificates().size();
+            return getViewModel().getCertificates() == null ? 0 : getViewModel().getCertificates().size();
         }
     }
 

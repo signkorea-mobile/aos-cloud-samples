@@ -1,14 +1,11 @@
 package com.signkorea.cloud.sample.viewModels;
 
-import android.content.Context;
-
 import androidx.annotation.NonNull;
 import androidx.databinding.ObservableBoolean;
 import androidx.databinding.ObservableField;
 import androidx.lifecycle.ViewModel;
 
-import com.yettiesoft.cloud.Client;
-import com.yettiesoft.cloud.InvalidLicenseException;
+import com.signkorea.cloud.sample.models.CloudRepository;
 
 import java.util.Optional;
 import java.util.function.Consumer;
@@ -16,28 +13,15 @@ import java.util.function.Consumer;
 import lombok.val;
 
 public class SecureSettingViewModel extends ViewModel  {
-    private Client client = null;
+    private CloudRepository repo = CloudRepository.getInstance();
 
     public final ObservableBoolean enableServiceTime = new ObservableBoolean();
     public final ObservableField<String> startTime = new ObservableField<>();
     public final ObservableField<String> endTime = new ObservableField<>();
     public final ObservableBoolean enableLocalService = new ObservableBoolean();
 
-    public boolean hasValidLicense() {
-        return client != null;
-    }
-
-    public SecureSettingViewModel init(Context context, Client.Delegate delegate) throws InvalidLicenseException {
-        client = new Client().init(context).setDelegate(delegate);
-        return this;
-    }
-
     public void loadData(Consumer<Exception> onError) {
-        if (!hasValidLicense()) {
-            return;
-        }
-
-        client.getSecureSetting(secureSetting -> {
+        repo.getSecureSetting(secureSetting -> {
             this.enableServiceTime.set(secureSetting.getServiceTime());
             this.startTime.set(secureSetting.getStartTime());
             this.endTime.set(secureSetting.getEndTime());
@@ -80,11 +64,7 @@ public class SecureSettingViewModel extends ViewModel  {
         @NonNull Runnable completion,
         @NonNull Consumer<Exception> onError)
     {
-        if (!hasValidLicense()) {
-            return;
-        }
-
-        client.setSecureSetting(
+        repo.setSecureSetting(
             this.enableLocalService.get(),
             this.enableServiceTime.get(),
             this.getRefinedTime(this.startTime.get()),

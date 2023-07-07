@@ -1,20 +1,15 @@
 package com.signkorea.cloud.sample.viewModels;
 
-import android.content.Context;
-
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.lifecycle.ViewModel;
 
 import com.signkorea.cloud.KSCertificateExt;
-import com.signkorea.cloud.KSCertificateManagerExt;
+import com.signkorea.cloud.sample.models.CloudRepository;
 import com.signkorea.securedata.ProtectedData;
 import com.signkorea.securedata.SecureData;
-import com.yettiesoft.cloud.Client;
-import com.yettiesoft.cloud.InvalidLicenseException;
 import com.yettiesoft.cloud.models.ExportedCertificate;
 
-import java.util.ArrayList;
 import java.util.Hashtable;
 import java.util.List;
 import java.util.function.BiConsumer;
@@ -23,66 +18,43 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import lombok.Getter;
-import lombok.Setter;
 import lombok.SneakyThrows;
-import lombok.experimental.Accessors;
 import lombok.val;
 
 public class CertificateListFragmentViewModel extends ViewModel {
-    public enum DataSource {
-        remote,
-            local
-    }
-
-    private KSCertificateManagerExt certMgr = new KSCertificateManagerExt();
+    private CloudRepository repo = CloudRepository.getInstance();
 
     @Getter
-    private List<KSCertificateExt> certificates = new ArrayList<>();
-
-    @Setter @Accessors(chain = true)
-    private DataSource dataSource = DataSource.remote;
-
-    public CertificateListFragmentViewModel init(Context context,
-                                                 Client.Delegate delegate,
-                                                 KSCertificateManagerExt.Delegate cmpDelegate) throws InvalidLicenseException {
-        try {
-            certMgr.init(context)
-                    .setClientDelegate(delegate)
-                    .setCMPDelegate(cmpDelegate);
-        }
-        catch(Exception e) {
-            certMgr = null;
-            throw e;
-        }
-        return this;
-    }
-
-    public boolean hasValidLicense() {
-        return certMgr != null;
-    }
+    private List<KSCertificateExt> certificates;
 
     @SneakyThrows
-    public void loadData(@NonNull Runnable completion,
-                         @NonNull Consumer<Exception> onError,
-                         Predicate<KSCertificateExt> certificateFilter) {
-        if (!hasValidLicense()) {
+    public void loadData(CloudRepository.DataSource dataSource,
+                         Predicate<KSCertificateExt> filter,
+                         @NonNull Runnable completion,
+                         @NonNull Consumer<Exception> onError) {
+        loadData(dataSource, filter, false, completion, onError);
+    }
+
+    public void loadData(CloudRepository.DataSource dataSource,
+                         Predicate<KSCertificateExt> filter,
+                         boolean forceRun,                      // 인증서 목록을 항상 다시 로딩해야 하는 경우 (인증서 갱신 등)
+                         @NonNull Runnable completion,
+                         @NonNull Consumer<Exception> onError) {
+        Runnable innerComplete = () -> {
+            certificates = repo.getCertificates();
+            if(filter != null)
+                certificates = certificates.stream().filter(filter).collect(Collectors.toList());
+            completion.run();
+        };
+
+        // 이전 로딩한 인증서 데이터 소스와 다른 경우 재로딩
+        if(dataSource == repo.getDataSource() && !forceRun) {
+            innerComplete.run();
             return;
         }
 
-        final Predicate<KSCertificateExt> filter = (certificateFilter != null) ? certificateFilter : certInfo -> true;
-        if (dataSource == DataSource.remote) {
-            certMgr.getUserCertificateListCloud((certificates) -> {
-                this.certificates = certificates.stream().filter(filter).collect(Collectors.toList());
-                completion.run();
-            }, onError);
-        } else if (dataSource == DataSource.local){
-            certMgr.getUserCertificateListLocal(certificates -> {
-                this.certificates = certificates.stream().filter(filter).collect(Collectors.toList());
-                completion.run();
-            }, onError);
-        } else {
-            assert false:"정의되지 않은 인증서 데이터 소스입니다.";
-        }
+        repo.loadCertificates(dataSource, innerComplete, onError);
+
     }
 
     public void registerCertificate(
@@ -95,11 +67,7 @@ public class CertificateListFragmentViewModel extends ViewModel {
         @NonNull Runnable completion,
         @NonNull Consumer<Exception> onError)
     {
-        if (!hasValidLicense()) {
-            return;
-        }
-
-        assert dataSource == DataSource.local;
+        assert repo.getDataSource() == CloudRepository.DataSource.local;
 
         ProtectedData encryptedSecret = new SecureData(secret.getBytes());
         ProtectedData encryptedpin = new SecureData(pin.getBytes());
@@ -116,7 +84,7 @@ public class CertificateListFragmentViewModel extends ViewModel {
             onError.accept(e);
         };
 
-        certMgr.importCertificate(certificate, key, kmCertificate, kmKey, encryptedSecret, encryptedpin, innerCompletion, innerError);
+        repo.importCertificate(certificate, key, kmCertificate, kmKey, encryptedSecret, encryptedpin, innerCompletion, innerError);
     }
 
     public void exportCertificate(
@@ -126,19 +94,15 @@ public class CertificateListFragmentViewModel extends ViewModel {
         @NonNull BiConsumer<ExportedCertificate, Boolean> completion,
         @NonNull Consumer<Exception> onError)
     {
-        if (!hasValidLicense()) {
-            return;
-        }
-
         KSCertificateExt cert = certificates.get(index);
 
         ProtectedData encryptedSecret = new SecureData(secret.getBytes());
         ProtectedData encryptedpin = new SecureData(pin.getBytes());
 
-        BiConsumer<ExportedCertificate[], Boolean> innerCompletion = (certificates, fromCache) -> {
+        BiConsumer<ExportedCertificate, Boolean> innerCompletion = (certificate, fromCache) -> {
             encryptedSecret.clear();
             encryptedpin.clear();
-            completion.accept(certificates[0], fromCache);
+            completion.accept(certificate, fromCache);
         };
 
         Consumer<Exception> innerError = e -> {
@@ -147,7 +111,7 @@ public class CertificateListFragmentViewModel extends ViewModel {
             onError.accept(e);
         };
 
-        certMgr.exportCertificate(cert.getId(), encryptedpin, encryptedSecret, innerCompletion, innerError);
+        repo.exportCertificate(cert.getId(), encryptedpin, encryptedSecret, innerCompletion, innerError);
     }
 
     public void changeCertificatePin(
@@ -157,10 +121,6 @@ public class CertificateListFragmentViewModel extends ViewModel {
         @NonNull Runnable completion,
         @NonNull Consumer<Exception> onError)
     {
-        if (!hasValidLicense()) {
-            return;
-        }
-
         KSCertificateExt cert = certificates.get(index);
 
         ProtectedData encryptedOldPin = new SecureData(oldPin.getBytes());
@@ -178,7 +138,7 @@ public class CertificateListFragmentViewModel extends ViewModel {
             onError.accept(e);
         };
 
-        certMgr.changePwd(cert.getId(), encryptedOldPin, encryptedNewPin, innerCompletion, innerError);
+        repo.changeCertificatePin(cert.getId(), encryptedOldPin, encryptedNewPin, innerCompletion, innerError);
     }
 
     public void deleteCertificate(
@@ -186,14 +146,10 @@ public class CertificateListFragmentViewModel extends ViewModel {
         @NonNull Runnable completion,
         @NonNull Consumer<Exception> onError)
     {
-        if (!hasValidLicense()) {
-            return;
-        }
-
         KSCertificateExt cert = certificates.get(index);
 
-        certMgr.deleteCert(cert.getId(), () -> {
-            certificates.remove(index);
+        repo.deleteCertificate(cert.getId(), () -> {
+            certificates = repo.getCertificates();      // 삭제된 인증서 리스트 반영
             completion.run();
         }, onError);
     }
@@ -203,11 +159,7 @@ public class CertificateListFragmentViewModel extends ViewModel {
         @NonNull String secret,
         @NonNull Consumer<Hashtable<String, Object>> completion)
     {
-        if (!hasValidLicense()) {
-            return;
-        }
-
-        if(dataSource == DataSource.remote) {       // 클라우드 인증서 갱신
+        if(repo.getDataSource() == CloudRepository.DataSource.remote) {       // 클라우드 인증서 갱신
             ProtectedData encryptedPin = new SecureData(secret.getBytes());
             KSCertificateExt cert = certificates.get(index);
 
@@ -218,10 +170,8 @@ public class CertificateListFragmentViewModel extends ViewModel {
                         completion.accept(table);
                     };
 
-                    certMgr.updateCloud(cert.getId(),
+                    repo.updateCertificateCloud(cert,
                         encryptedPin,
-                        256,
-                        true,
                         innerCompletion);
                 }
             }.start();
@@ -237,11 +187,8 @@ public class CertificateListFragmentViewModel extends ViewModel {
                 };
 
                 public void run() {
-                    certMgr.updateLocal(cert.getCertificate(),
-                            cert.getKey(),
+                    repo.updateCertificateLocal(cert,
                             encryptedPwd,
-                            256,
-                            true,       // 테스트서버: true, 가동서버: false
                             innerCompletion);
                 }
             }.start();
@@ -253,14 +200,10 @@ public class CertificateListFragmentViewModel extends ViewModel {
         @NonNull Runnable completion,
         @NonNull Consumer<Exception> onError)
     {
-        if (!hasValidLicense()) {
-            return;
-        }
-
         val cert = certificates.get(index);
 
-        certMgr.unlockCertificate(cert.getId(), () -> {
-            certificates.remove(index);
+        repo.unlockCertificate(cert, () -> {
+            certificates = repo.getLockedCertificates();
             completion.run();
         }, onError);
     }

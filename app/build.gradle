@@ -39,6 +39,14 @@ android {
         viewBinding true
     }
 
+    android.applicationVariants.all { variant ->
+        variant.outputs.all { output ->
+            if (outputFileName.endsWith('.apk')) {
+                outputFileName = "SignKorea-CloudSample.apk"
+            }
+        }
+    }
+
     compileOptions {
         coreLibraryDesugaringEnabled true
         sourceCompatibility JavaVersion.VERSION_1_8

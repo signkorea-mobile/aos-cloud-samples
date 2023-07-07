@@ -1,46 +1,32 @@
 package com.signkorea.cloud.sample.viewModels;
 
-import android.content.Context;
-
 import androidx.lifecycle.ViewModel;
-import androidx.annotation.Nullable;
 
-import com.yettiesoft.cloud.Client;
-import com.yettiesoft.cloud.InvalidLicenseException;
+import com.signkorea.cloud.sample.models.CloudRepository;
 import com.yettiesoft.cloud.models.AutoConnectDevice;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 import java.util.function.Consumer;
 
 import lombok.Getter;
-import lombok.NonNull;
 
 public class AutoConnectionDevicesFragmentViewModel extends ViewModel {
-    private Client client = null;
+    private CloudRepository repo = CloudRepository.getInstance();
 
-    @NonNull
     @Getter
-    private List<AutoConnectDevice> devices = new ArrayList<>();
-
-    public AutoConnectionDevicesFragmentViewModel init(Context appContext, Client.Delegate delegate) throws InvalidLicenseException {
-        client = new Client().init(appContext).setDelegate(delegate);
-        return this;
-    }
+    private List<AutoConnectDevice> devices = null;
 
     @SuppressWarnings("UnusedReturnValue")
     public AutoConnectionDevicesFragmentViewModel loadData(
         Runnable completion,
         Consumer<Exception> onError)
     {
-        if (hasValidLicense()) {
-            client.getAutoConnectInfo(devices -> {
-                this.devices = new ArrayList<>(Arrays.asList(devices));
-
-                completion.run();
-            }, onError);
-        }
+        CloudRepository.getInstance().getAutoConnectDevices(devices -> {
+            this.devices = new ArrayList<>(devices);
+            completion.run();
+        }, onError);
 
         return this;
     }
@@ -51,19 +37,16 @@ public class AutoConnectionDevicesFragmentViewModel extends ViewModel {
         Consumer<Boolean> completion,
         Consumer<Exception> onError)
     {
-        if (hasValidLicense()) {
-            String deviceId = getDevices().get(index).getDeviceId();
-
-            client.deleteAutoConnect(deviceId, currentDevice -> {
-                getDevices().remove(index);
-                completion.accept(currentDevice);
-            }, onError);
-        }
+        String deviceId = devices.get(index).getDeviceId();
+        repo.deleteAutoConnectDevice(deviceId, currentDevice -> {
+            getDevices().remove(index);
+            completion.accept(currentDevice);
+        }, onError);
 
         return this;
     }
 
-    public boolean hasValidLicense() {
-        return client != null;
+    public boolean isCurrentDevice(int index) {
+        return Objects.equals(devices.get(index).getDeviceId(), repo.getCertMgr().client.getCurrentDeviceId());
     }
 }

@@ -13,6 +13,7 @@ import java.lang.reflect.Method;
 import java.lang.reflect.ParameterizedType;
 
 public class DataBindingActivity<BindingT extends ViewDataBinding> extends AppCompatActivity {
+    private final String TAG = getClass().getSimpleName();
     private BindingT binding;
 
     @SuppressWarnings({"unchecked", "ConstantConditions"})

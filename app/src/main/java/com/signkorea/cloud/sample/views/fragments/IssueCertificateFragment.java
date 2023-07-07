@@ -13,10 +13,9 @@ import com.signkorea.certmanager.BillActivity;
 import com.signkorea.certmanager.BillParam;
 import com.signkorea.cloud.sample.databinding.FragmentIssueCertificateBinding;
 import com.signkorea.cloud.sample.enums.CertificateOperation;
+import com.signkorea.cloud.sample.utils.PasswordDialog;
 import com.signkorea.cloud.sample.viewModels.IssueCertificateFragmentViewModel;
 import com.signkorea.cloud.sample.views.base.ViewModelFragment;
-import com.yettiesoft.cloud.Client;
-import com.yettiesoft.cloud.InvalidLicenseException;
 import com.yettiesoft.cloud.InvalidPinException;
 
 import java.util.Hashtable;
@@ -31,15 +30,7 @@ public class IssueCertificateFragment extends ViewModelFragment<FragmentIssueCer
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
 
-        try {
-            getViewModel()
-                .init(requireContext().getApplicationContext(),
-                        (Client.Delegate) requireActivity(),
-                        this);
-        } catch (InvalidLicenseException e) {
-            e.printStackTrace();
-        }
-
+        getViewModel().init();
         getBinding().issue.setOnClickListener(view1 -> issue());
         getBinding().savePhone.setOnClickListener(view1 -> savePhone());
         getBinding().saveCloud.setOnClickListener(view1 -> saveCloud());
@@ -92,7 +83,7 @@ public class IssueCertificateFragment extends ViewModelFragment<FragmentIssueCer
             } else {
                 requireActivity().runOnUiThread(() -> new AlertDialog.Builder(requireActivity())
                     .setTitle((String)ret.get("CODE"))
-                    .setMessage(ret.get("MESSAGE") + " - " + getViewModel().getIssuedCertDN())
+                    .setMessage(ret.get("MESSAGE").toString())
                     .setPositiveButton(android.R.string.ok, null)
                     .setNegativeButton(android.R.string.cancel, null)
                     .setOnDismissListener(dialog -> {
@@ -146,11 +137,16 @@ public class IssueCertificateFragment extends ViewModelFragment<FragmentIssueCer
                 .show();
         };
 
-        acquirePassword(requireContext(), "인증서 발급 저장",
-            true, false, "", pin -> {
+        PasswordDialog.show(requireContext(),
+                "인증서 발급 저장",
+                true,
+                false,
+                "",
+                pin -> {
                 showLoading();
                 getViewModel().saveCloud(pin, completion, onError);
-            });
+            },
+                this::dismissLoading);
     }
 
     private void showBillingActivity(String reference) {

@@ -1,16 +1,8 @@
 package com.signkorea.cloud.sample.views.base;
 
-import static com.signkorea.cloud.sample.viewModels.InterFragmentStore.BILL_ACTION_CANCEL;
-import static com.signkorea.cloud.sample.viewModels.InterFragmentStore.BILL_ACTION_COMPLETE;
-
 import android.annotation.SuppressLint;
-import android.app.Activity;
 import android.app.AlertDialog;
-import android.content.Context;
-import android.content.DialogInterface;
-import android.content.Intent;
 import android.os.Bundle;
-import android.util.Log;
 import android.util.Pair;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -18,22 +10,15 @@ import android.view.ViewGroup;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.databinding.Observable;
-import androidx.databinding.ObservableField;
 import androidx.databinding.ViewDataBinding;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.navigation.NavController;
 
 import com.lumensoft.ks.KSException;
-import com.signkorea.certmanager.BillActivity;
-import com.signkorea.cloud.BillInfo;
-import com.signkorea.cloud.KSCertificateManagerExt;
-import com.signkorea.cloud.sample.databinding.AlertPasswordBinding;
+import com.signkorea.cloud.sample.models.CloudRepository;
 import com.signkorea.cloud.sample.viewModels.InterFragmentStore;
 import com.signkorea.cloud.sample.views.MainActivity;
-import com.signkorea.securedata.ProtectedData;
-import com.signkorea.securedata.SecureData;
 import com.yettiesoft.cloud.CancelException;
 import com.yettiesoft.cloud.CloudAPIException;
 import com.yettiesoft.cloud.IncorrectPasscodeException;
@@ -49,12 +34,11 @@ import java.net.SocketTimeoutException;
 import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.function.Consumer;
 import java.util.function.Function;
 
 import lombok.val;
 
-public class DataBindingFragment<BindingT extends ViewDataBinding> extends Fragment implements KSCertificateManagerExt.Delegate {
+public class DataBindingFragment<BindingT extends ViewDataBinding> extends Fragment {
     protected final String TAG = getClass().getSimpleName();
     private BindingT binding;
     private InterFragmentStore interFragmentStore;
@@ -99,6 +83,7 @@ public class DataBindingFragment<BindingT extends ViewDataBinding> extends Fragm
         @Nullable Bundle savedInstanceState)
     {
         binding = inflate(inflater, container);
+        CloudRepository.getInstance().setViewContext(requireContext());
 
         return binding.getRoot();
     }
@@ -216,7 +201,7 @@ public class DataBindingFragment<BindingT extends ViewDataBinding> extends Fragm
                 case CloudAPIException.OldCertificate:
                     return "최신 인증서가 이미 등록되어 있습니다.";
                 case CloudAPIException.PinLock:
-                    return "핀 5회 오류로 인해 인증서가 잠겼습니다.";
+                    return "PIN 5회 오류로 인해 인증서가 잠겼습니다.";
                 case CloudAPIException.NotAllowCert:
                     return "Cloud에 등록할 수 없는 인증서입니다.";
                 case CloudAPIException.NotAllowTime:
@@ -272,162 +257,7 @@ public class DataBindingFragment<BindingT extends ViewDataBinding> extends Fragm
         ((MainActivity)requireActivity()).dismissLoading();
     }
 
-    protected void acquirePassword(Context context,
-                                   String title,
-                                   boolean pinMode,
-                                   boolean confirmPassword,
-                                   String initialPassword,
-                                   Consumer<String> completion,
-                                   @Nullable Runnable cancel) {
-        ObservableField<String> pwd1 = new ObservableField<String>();
-        ObservableField<String> pwd2 = new ObservableField<String>();
-
-        AlertPasswordBinding binding =
-                AlertPasswordBinding.inflate(LayoutInflater.from(context));
-
-        binding.setPassword1(pwd1);
-        binding.setPassword2(pwd2);
-        binding.setConfirmPassword(confirmPassword);
-        binding.setPinMode(pinMode);
-
-        AlertDialog alert = new AlertDialog.Builder(context)
-                .setTitle(title)
-                .setView(binding.getRoot())
-                .setPositiveButton(android.R.string.ok, (dialog, which) -> completion.accept(pwd1.get()))
-                .setNegativeButton(android.R.string.cancel, (dialog, which) -> {
-                    if(cancel != null)
-                        cancel.run();
-                })
-                .setOnCancelListener(dialog -> {
-                    if(cancel != null)
-                        cancel.run();
-                })
-                .create();
-
-        if (confirmPassword) {
-            Observable.OnPropertyChangedCallback onPwdChanged = new Observable.OnPropertyChangedCallback() {
-                @Override
-                public void onPropertyChanged(Observable sender, int propertyId) {
-                    String pwd = pwd1.get();
-                    boolean ok = pwd != null && pwd.length() > 0 && pwd.equals(pwd2.get());
-                    alert.getButton(AlertDialog.BUTTON_POSITIVE).setEnabled(ok);
-                }
-            };
-            pwd1.addOnPropertyChangedCallback(onPwdChanged);
-            pwd2.addOnPropertyChangedCallback(onPwdChanged);
-        } else {
-            Observable.OnPropertyChangedCallback onPwdChanged = new Observable.OnPropertyChangedCallback() {
-                @Override
-                public void onPropertyChanged(Observable sender, int propertyId) {
-                    String pwd = pwd1.get();
-                    boolean ok = pwd != null && pwd.length() > 0;
-                    alert.getButton(AlertDialog.BUTTON_POSITIVE).setEnabled(ok);
-                }
-            };
-            pwd1.addOnPropertyChangedCallback(onPwdChanged);
-        }
-
-        alert.show();
-
-        pwd1.set(initialPassword);
-        pwd2.set(initialPassword);
+    public void getCloudRepo() {
+        ((MainActivity)requireActivity()).getCloudRepository();
     }
-
-    protected void acquirePassword(Context context,
-                                   String title,
-                                   boolean pinMode,
-                                   boolean confirmPassword,
-                                   String initialPassword,
-                                   Consumer<String> completion) {
-        acquirePassword(context, title, pinMode, confirmPassword, initialPassword, completion, () -> dismissLoading());
-    }
-
-    // region KSCertificateManagerExt.Delegate 구현부
-    // 처리 도중 사용자로부터 비밀번호/PIN을 입력받아야 하는 경우 이벤트 발생
-    @Override
-    public void requireCode(@NonNull KSCertificateManagerExt.CodeType type,
-                            @NonNull Consumer<ProtectedData> code,
-                            @NonNull Runnable cancel) {
-        boolean isPin;
-        String title;
-        if(type == KSCertificateManagerExt.CodeType.NUMBER) {
-            isPin = true;
-            title = "인증서 PIN 입력";
-        }
-        else {
-            isPin = false;
-            title = "인증서 비밀번호 입력";
-        }
-
-        acquirePassword(requireContext(),
-                title,
-                isPin,
-                true,
-                "",
-                secret -> {
-                    code.accept(new SecureData(secret.getBytes()));
-                },
-                () -> {
-                    dismissLoading();
-                    cancel.run();
-                });
-    }
-
-    // 처리 도중 빌링 처리가 진행되어야 하는 경우 이벤트 발생
-    @Override
-    public void doBill(@NonNull BillInfo billInfo,
-                       @NonNull Runnable complete,
-                       @NonNull Runnable cancel) {
-        getInterFragmentStore().put(
-                BILL_ACTION_COMPLETE,
-                complete);
-
-        getInterFragmentStore().put(
-                BILL_ACTION_CANCEL,
-                cancel);
-
-        Intent intent = new Intent(requireContext(), BillActivity.class);
-        intent.putExtra(BillActivity.IS_MAIN_SERVER, false);         // 메인 서버인 경우에는 true로 설정
-        intent.putExtra(BillActivity.OPERATION, billInfo.getOperation());   // 갱신인 경우에는 BillActivity.UPDATE 적용
-
-        String arg;
-        if (billInfo.getOperation().equalsIgnoreCase(BillActivity.ISSUE))
-            arg = BillActivity.REFERENCE;
-        else
-            arg = BillActivity.SERIAL;
-
-        intent.putExtra(arg, billInfo.getBillArgument());
-        startActivityForResult(intent, BillActivity.ID);
-    }
-
-    // 전환 발급/갱신이 중 PIN 입력을 취소하는 경우 이벤트 발생
-    @Override
-    public void showStatus(@NonNull KSCertificateManagerExt.Status status,
-                           @NonNull String message,
-                           @NonNull Runnable complete,
-                           @NonNull Runnable cancel) {
-        String title;
-        switch(status) {
-            case SWITCH_ISSUE:
-                title = "인증서 발급";
-                break;
-
-            case SWITCH_UPDATE:
-                title = "인증서 갱신";
-                break;
-
-            default:
-                title = "";
-                assert false: "정의되지 않은 클라우드 전환 발급/갱신 프로세스입니다.";
-        }
-
-        new AlertDialog.Builder(requireContext())
-                .setTitle(title)
-                .setMessage(message)
-                .setPositiveButton(android.R.string.ok, (dialog, which) -> complete.run()) // 클라우드 저장 없이 로컬 발급/갱신 진행
-                .setNegativeButton(android.R.string.cancel, (dialog, which) -> cancel.run()) // 발급/갱신 취소
-                .show();
-
-    }
-    // endregion
 }

@@ -16,103 +16,77 @@ import com.lumensoft.ks.KSException;
 import com.lumensoft.ks.KSSign;
 import com.signkorea.cloud.Bio;
 import com.signkorea.cloud.KSCertificateExt;
-import com.signkorea.cloud.KSCertificateManagerExt;
 import com.signkorea.cloud.sample.databinding.FragmentLoginBinding;
 import com.signkorea.cloud.sample.enums.CertificateOperation;
 import com.signkorea.cloud.sample.enums.SignMenuType;
-import com.signkorea.cloud.sample.utils.OnceRunnable;
-import com.signkorea.cloud.sample.utils.SimpleSharedPreferences;
+import com.signkorea.cloud.sample.models.CloudRepository;
+import com.signkorea.cloud.sample.utils.PasswordDialog;
 import com.signkorea.cloud.sample.views.base.DataBindingFragment;
 import com.signkorea.securedata.ProtectedData;
 import com.signkorea.securedata.SecureData;
-import com.yettiesoft.cloud.Client;
-import com.yettiesoft.cloud.InvalidLicenseException;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.function.Consumer;
-import java.util.function.Predicate;
-import java.util.stream.Collectors;
 
 public class LoginFragment extends DataBindingFragment<FragmentLoginBinding> implements Bio.Callback{
+    private CloudRepository repo = CloudRepository.getInstance();
     @Nullable
     private KSCertificateExt selectedCert = null;
 
     private CertificateOperation operation = CertificateOperation.get;
     private SignMenuType menuType;
 
-    private List<KSCertificateExt> certificates = new ArrayList<>();
-
-    private final KSCertificateManagerExt certMgr = new KSCertificateManagerExt();
-
     private Bio bio = null;
 
-    private final OnceRunnable initClient = new OnceRunnable(() -> {
-        Consumer<Exception> onError = e -> {
-            menuType = LoginFragmentArgs.fromBundle(getArguments()).getSignMenuType();
-            alertException(e, menuType.getLabel(), true);
-        };
-
-        try {
-            certMgr.init(requireContext().getApplicationContext());
-        } catch (InvalidLicenseException e) {
-            alertException(e, "라이선스 안내", true);
-        }
-
-        certMgr.setClientDelegate((Client.Delegate) requireActivity());
-        certMgr.setCMPDelegate(this);
-
-        Predicate<KSCertificateExt> certificateFilter = certInfo -> true;
-
-        showLoading();
-        certMgr.getUserCertificateListCloud((certificates) -> {
+    private void refresh() {
+        Runnable refreshUI = () -> {
             dismissLoading();
 
-            this.certificates = certificates.stream().filter(certificateFilter).collect(Collectors.toList());
+            getBinding().selectdnText.setText(selectedCert.getSubject());
+            getBinding().authTypeBtnPin.setVisibility(View.VISIBLE);
 
-            // 이전에 사용했던 인증서 SubjectDn 조회 후 로딩한 인증서 목록에서 조회
-            String selectedSubjectDn = SimpleSharedPreferences.getInstance(requireContext()).getCertDn();
-            selectedCert = this.certificates.stream()
-                    .filter(cert -> cert.getSubject().equals(selectedSubjectDn))
-                    .findFirst()
-                    .orElse(null);
+            menuType = LoginFragmentArgs.fromBundle(getArguments()).getSignMenuType();
+            switch(menuType) {
+                case LOGIN:
+                    getBinding().koscomCmsSign.setVisibility(View.VISIBLE);
+                    getBinding().koscomCmsSign.setText("로그인 서명");
+                    break;
 
-            getBinding().authTypeBtnFinger.setVisibility(View.INVISIBLE);
+                case ORDER:
+                    getBinding().koscomBriefSign.setVisibility(View.VISIBLE);
+                    break;
 
-            if (selectedCert == null) {
-                // 이전에 사용한 인증서가 없는 경우 선택 인증서 정보 초기화
-                SimpleSharedPreferences.getInstance(requireContext()).edit().certDn("");
+                case REGISTER:
+                    getBinding().koscomCmsSign.setVisibility(View.VISIBLE);
+                    getBinding().getRandom.setVisibility(View.VISIBLE);
+                    getBinding().koscomCmsSign.setText("서명 데이터 생성");
+                    break;
             }
-            else {
-                getBinding().selectdnText.setText(selectedCert.getSubject());
-                getBinding().authTypeBtnPin.setVisibility(View.VISIBLE);
 
+            if (selectedCert != null && selectedCert.isCloud() && bio.isBio(selectedCert.getId()))
+                getBinding().deleteBio.setVisibility(View.VISIBLE);
+            else
+                getBinding().deleteBio.setVisibility(View.INVISIBLE);
+
+        };
+
+        if(repo.getDataSource() == CloudRepository.DataSource.remote) {
+            selectedCert = repo.getSelectedCert();
+            refreshUI.run();
+        }
+        else {
+            Consumer<Exception> onError = e -> {
                 menuType = LoginFragmentArgs.fromBundle(getArguments()).getSignMenuType();
-                switch(menuType) {
-                    case LOGIN:
-                        getBinding().koscomCmsSign.setVisibility(View.VISIBLE);
-                        getBinding().koscomCmsSign.setText("로그인 서명");
-                        break;
+                alertException(e, menuType.getLabel(), true);
+            };
 
-                    case ORDER:
-                        getBinding().koscomBriefSign.setVisibility(View.VISIBLE);
-                        break;
+            showLoading();
+            repo.loadCertificates(CloudRepository.DataSource.remote, () -> {
+                selectedCert = repo.getSelectedCert();
 
-                    case REGISTER:
-                        getBinding().koscomCmsSign.setVisibility(View.VISIBLE);
-                        getBinding().getRandom.setVisibility(View.VISIBLE);
-                        getBinding().koscomCmsSign.setText("서명 데이터 생성");
-                        break;
-                }
-
-                if (selectedCert.isCloud()) {
-                    if (bio.isBio(selectedCert.getId())) {
-                        getBinding().deleteBio.setVisibility(View.VISIBLE);
-                    }
-                }
-            }
-        }, onError);
-    });
+                refreshUI.run();
+            }, onError);
+        }
+    }
 
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
@@ -131,10 +105,10 @@ public class LoginFragment extends DataBindingFragment<FragmentLoginBinding> imp
         getBinding().getRandom.setOnClickListener(view1 -> sign(Bio.OPERATION.GETRANDOM));
         getBinding().deleteBio.setOnClickListener(view1 -> removeBio());
 
-        initClient.run();
-
-        bio = new Bio(requireActivity(), this.certMgr);
+        bio = new Bio(requireActivity(), repo.getCertMgr());
         bio.setCallback(this);
+
+        refresh();
     }
 
     private void sign(Bio.OPERATION type) {
@@ -154,7 +128,7 @@ public class LoginFragment extends DataBindingFragment<FragmentLoginBinding> imp
                             .setTitle("생체 인증 등록")
                             .setMessage("등록된 생체정보가 없습니다.\n등록을 진행 하시겠습니까?")
                             .setPositiveButton(android.R.string.ok, (dialog, which) -> {
-                                acquirePassword(requireContext(),
+                                PasswordDialog.show(requireContext(),
                                         operation.getLabel(),
                                         true,
                                         false,
@@ -162,7 +136,8 @@ public class LoginFragment extends DataBindingFragment<FragmentLoginBinding> imp
                                         pin -> {
                                             showLoading();
                                             bio.addBioCloud(selectedCert.getId(), new SecureData(pin.getBytes()));
-                                });
+                                        },
+                                        this::dismissLoading);
                             })
                             .setNegativeButton(android.R.string.cancel, null)
                             .show();
@@ -170,25 +145,22 @@ public class LoginFragment extends DataBindingFragment<FragmentLoginBinding> imp
             }
             else
             {
-                acquirePassword(requireContext(),
+                PasswordDialog.show(requireContext(),
                         operation.getLabel(),
                         true,
                         false,
                         "",
-                        pin -> {
-                            cloudSign(type, new SecureData(pin.getBytes()));
-                });
+                        pin -> cloudSign(type, new SecureData(pin.getBytes())),
+                        this::dismissLoading);
             }
-
         } else {
-            acquirePassword(requireContext(),
+            PasswordDialog.show(requireContext(),
                     operation.getLabel(),
                     false,
                     false,
                     "",
-                    pin -> {
-                        localSign(type, new SecureData(pin.getBytes()));
-            });
+                    pin -> localSign(type, new SecureData(pin.getBytes())),
+                    this::dismissLoading);
         }
     }
 
@@ -230,15 +202,15 @@ public class LoginFragment extends DataBindingFragment<FragmentLoginBinding> imp
         showLoading();
         switch (type) {
             case KOSCOMCMSSIGN:
-                certMgr.koscomCMSSign(selectedCert.getId(), plain, encryptedPin, completion, onError);
+                repo.getCertMgr().koscomCMSSign(selectedCert.getId(), plain, encryptedPin, completion, onError);
                 break;
 
             case KOSCOMBRIEFSIGN:
-                certMgr.koscomBriefSign(selectedCert.getId(), plain, encryptedPin, completion, onError);
+                repo.getCertMgr().koscomBriefSign(selectedCert.getId(), plain, encryptedPin, completion, onError);
                 break;
 
             case GETRANDOM:
-                certMgr.getRandom(selectedCert.getId(), encryptedPin, getRandomCompletion, onError);
+                repo.getCertMgr().getRandom(selectedCert.getId(), encryptedPin, getRandomCompletion, onError);
                 break;
 
             default:
@@ -324,7 +296,7 @@ public class LoginFragment extends DataBindingFragment<FragmentLoginBinding> imp
                     .setTitle("생체 인증 실패")
                     .setMessage("인증서의 PIN이 변경되어 등록된 생체인증을 해지합니다.\n확인을 누르시면 재등록을 진행합니다.")
                     .setPositiveButton(android.R.string.ok, (dialog, which) -> {
-                        acquirePassword(requireContext(),
+                        PasswordDialog.show(requireContext(),
                                 operation.getLabel(),
                                 true,
                                 false,
@@ -332,7 +304,8 @@ public class LoginFragment extends DataBindingFragment<FragmentLoginBinding> imp
                                 pin -> {
                                     showLoading();
                                     bio.addBioCloud(selectedCert.getId(), new SecureData(pin.getBytes()));
-                        });
+                                },
+                                this::dismissLoading);
                     })
                     .setNegativeButton(android.R.string.cancel, null)
                     .show();

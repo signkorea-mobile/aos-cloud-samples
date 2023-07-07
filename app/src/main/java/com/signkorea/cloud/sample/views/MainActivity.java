@@ -1,6 +1,10 @@
 package com.signkorea.cloud.sample.views;
 
+import static com.signkorea.cloud.sample.viewModels.InterFragmentStore.BILL_ACTION_CANCEL;
+import static com.signkorea.cloud.sample.viewModels.InterFragmentStore.BILL_ACTION_COMPLETE;
+
 import android.annotation.SuppressLint;
+import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.Dialog;
 import android.content.Intent;
@@ -21,14 +25,21 @@ import androidx.navigation.fragment.NavHostFragment;
 import androidx.navigation.ui.AppBarConfiguration;
 import androidx.navigation.ui.NavigationUI;
 
+import com.signkorea.certmanager.BillActivity;
+import com.signkorea.cloud.BillInfo;
+import com.signkorea.cloud.KSCertificateManagerExt;
 import com.signkorea.cloud.sample.BuildConfig;
 import com.signkorea.cloud.sample.R;
 import com.signkorea.cloud.sample.databinding.ActivityMainBinding;
 import com.signkorea.cloud.sample.enums.CertificateOperation;
+import com.signkorea.cloud.sample.models.CloudRepository;
+import com.signkorea.cloud.sample.utils.PasswordDialog;
 import com.signkorea.cloud.sample.viewModels.InterFragmentStore;
 import com.signkorea.cloud.sample.views.base.DataBindingActivity;
 import com.signkorea.cloud.sample.views.fragments.CloudCertificateListFragmentArgs;
 import com.signkorea.cloud.sample.views.fragments.LocalCertificateListFragmentArgs;
+import com.signkorea.securedata.ProtectedData;
+import com.signkorea.securedata.SecureData;
 import com.yettiesoft.cloud.AcknowledgeConditionsOfUseReason;
 import com.yettiesoft.cloud.AcquiredUserInfo;
 import com.yettiesoft.cloud.Client;
@@ -37,14 +48,18 @@ import com.yettiesoft.cloud.PhoneNumberProofTransaction;
 
 import java.util.Optional;
 import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 
+import lombok.Getter;
 import lombok.val;
 
-public class MainActivity extends DataBindingActivity<ActivityMainBinding> implements Client.Delegate {
-    private final String TAG = getClass().getSimpleName();
+public class MainActivity extends DataBindingActivity<ActivityMainBinding> implements Client.Delegate, KSCertificateManagerExt.Delegate {
     private InterFragmentStore interFragmentStore;
     private AppBarConfiguration appBarConfiguration;
     private Dialog loadingPopup;
+
+    @Getter
+    private CloudRepository cloudRepository;
 
     @Override
     @SuppressLint("NonConstantResourceId")
@@ -53,6 +68,19 @@ public class MainActivity extends DataBindingActivity<ActivityMainBinding> imple
 
         interFragmentStore = new ViewModelProvider(this).get(InterFragmentStore.class);
 
+        try {
+            CloudRepository.getInstance().init(this, this, this);
+        }
+        catch(Exception e) {
+            new AlertDialog.Builder(this)
+                    .setTitle("라이선스 오류")
+                    .setMessage("라이선스를 확인 후 재시도해주세요.\n앱을 종료합니다.")
+                    .setPositiveButton("확인", (d, i) -> finish())
+                    .setCancelable(false)
+                    .show();
+            return;
+        }
+
         Fragment navHostFragment = getSupportFragmentManager().findFragmentById(R.id.nav_host_fragment);
         @SuppressWarnings("ConstantConditions")
         NavController navController = ((NavHostFragment)navHostFragment).getNavController();
@@ -60,7 +88,6 @@ public class MainActivity extends DataBindingActivity<ActivityMainBinding> imple
         NavigationUI.setupActionBarWithNavController(this, navController, appBarConfiguration);
 
         navController.addOnDestinationChangedListener((controller, destination, arguments) -> {
-
             if (destination.getId() == R.id.homeFragment || destination.getId() == R.id.loginFragment ||
                     destination.getId() == R.id.certificateManagementFragment || destination.getId() == R.id.accountManagementFragment) {
                 getSupportActionBar().show();
@@ -148,7 +175,6 @@ public class MainActivity extends DataBindingActivity<ActivityMainBinding> imple
             // 이용자 가입 과정에서 이벤트 발생 시
             confirmAction = agree;
         } else {
-            // TODO 약관 업데이트 케이스 동작 확인
             // 약관 업데이트로 인한 이벤트 발생 시 (현재 화면 != 사용자 정보 입력 화면)
             val cancelAction = registerCancelAction();
 
@@ -237,6 +263,95 @@ public class MainActivity extends DataBindingActivity<ActivityMainBinding> imple
     }
     // endregion
 
+
+
+    // region KSCertificateManagerExt.Delegate 구현부
+    // 처리 도중 사용자로부터 비밀번호/PIN을 입력받아야 하는 경우 이벤트 발생
+    @Override
+    public void requireCode(@NonNull KSCertificateManagerExt.CodeType type,
+                            @NonNull Consumer<ProtectedData> code,
+                            @NonNull Runnable cancel) {
+        boolean isPin;
+        String title;
+        if(type == KSCertificateManagerExt.CodeType.NUMBER) {
+            isPin = true;
+            title = "인증서 PIN 입력";
+        }
+        else {
+            isPin = false;
+            title = "인증서 비밀번호 입력";
+        }
+
+        PasswordDialog.show(this,
+                title,
+                isPin,
+                true,
+                "",
+                secret -> code.accept(new SecureData(secret.getBytes())),
+                () -> {
+                    dismissLoading();
+                    cancel.run();
+                });
+    }
+
+    // 처리 도중 빌링 처리가 진행되어야 하는 경우 이벤트 발생
+    @Override
+    public void doBill(@NonNull BillInfo billInfo,
+                       @NonNull Runnable complete,
+                       @NonNull Runnable cancel) {
+        getInterFragmentStore().put(
+                BILL_ACTION_COMPLETE,
+                complete);
+
+        getInterFragmentStore().put(
+                BILL_ACTION_CANCEL,
+                cancel);
+
+        Intent intent = new Intent(this, BillActivity.class);
+        intent.putExtra(BillActivity.IS_MAIN_SERVER, false);         // 메인 서버인 경우에는 true로 설정
+        intent.putExtra(BillActivity.OPERATION, billInfo.getOperation());   // 갱신인 경우에는 BillActivity.UPDATE 적용
+
+        String arg;
+        if (billInfo.getOperation().equalsIgnoreCase(BillActivity.ISSUE))
+            arg = BillActivity.REFERENCE;
+        else
+            arg = BillActivity.SERIAL;
+
+        intent.putExtra(arg, billInfo.getBillArgument());
+        startActivityForResult(intent, BillActivity.ID);
+    }
+
+    // 전환 발급/갱신이 중 PIN 입력을 취소하는 경우 이벤트 발생
+    @Override
+    public void showStatus(@NonNull KSCertificateManagerExt.Status status,
+                           @NonNull String message,
+                           @NonNull Runnable complete,
+                           @NonNull Runnable cancel) {
+        String title;
+        switch(status) {
+            case SWITCH_ISSUE:
+                title = "인증서 발급";
+                break;
+
+            case SWITCH_UPDATE:
+                title = "인증서 갱신";
+                break;
+
+            default:
+                title = "";
+                assert false: "정의되지 않은 클라우드 전환 발급/갱신 프로세스입니다.";
+        }
+
+        new AlertDialog.Builder(this)
+                .setTitle(title)
+                .setMessage(message)
+                .setPositiveButton(android.R.string.ok, (dialog, which) -> complete.run()) // 클라우드 저장 없이 로컬 발급/갱신 진행
+                .setNegativeButton(android.R.string.cancel, (dialog, which) -> cancel.run()) // 발급/갱신 취소
+                .show();
+
+    }
+    // endregion
+
     // region   전 화면 공통 로딩 UI (Activity에 attach)
     public void showLoading() {
         loadingPopup.show();
@@ -247,8 +362,24 @@ public class MainActivity extends DataBindingActivity<ActivityMainBinding> imple
     }
     // endregion
 
+    // 클라우드 내 인증서 update() 처리 중 BillActivity 화면 결과 처리
     @Override
-    protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
+    public void onActivityResult(int requestCode, int resultCode, Intent data) {
+        if(requestCode == BillActivity.ID) {
+            String useAction;
+            String discardAction;
+            if(resultCode == Activity.RESULT_OK){
+                useAction = InterFragmentStore.BILL_ACTION_COMPLETE;
+                discardAction = InterFragmentStore.BILL_ACTION_CANCEL;
+            }
+            else {
+                useAction = InterFragmentStore.BILL_ACTION_CANCEL;
+                discardAction = InterFragmentStore.BILL_ACTION_COMPLETE;
+            }
+            getInterFragmentStore().<Runnable>remove(useAction).run();
+            getInterFragmentStore().remove(discardAction);
+        }
+        else
+            super.onActivityResult(requestCode, resultCode, data);
     }
 }

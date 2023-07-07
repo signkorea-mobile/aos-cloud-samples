@@ -8,22 +8,14 @@ import android.view.View;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
-import com.yettiesoft.cloud.Client;
-import com.yettiesoft.cloud.InvalidLicenseException;
-import com.signkorea.cloud.sample.views.base.ViewModelFragment;
 import com.signkorea.cloud.sample.databinding.FragmentSecureSettingBinding;
 import com.signkorea.cloud.sample.utils.OnceRunnable;
 import com.signkorea.cloud.sample.viewModels.SecureSettingViewModel;
+import com.signkorea.cloud.sample.views.base.ViewModelFragment;
 
 public class SecureSettingFragment extends ViewModelFragment<FragmentSecureSettingBinding, SecureSettingViewModel> {
 
     private final OnceRunnable loadData = new OnceRunnable(() -> {
-        try {
-            getViewModel().init(requireContext().getApplicationContext(), (Client.Delegate)requireActivity());
-        } catch (InvalidLicenseException exception) {
-            alertException(exception, true);
-        }
-
         getViewModel().loadData(exception -> alertException(exception, true));
     });
 
