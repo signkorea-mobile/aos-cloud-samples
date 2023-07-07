@@ -3,11 +3,13 @@ package com.signkorea.cloud.sample.views;
 import static com.signkorea.cloud.sample.viewModels.InterFragmentStore.BILL_ACTION_CANCEL;
 import static com.signkorea.cloud.sample.viewModels.InterFragmentStore.BILL_ACTION_COMPLETE;
 
+import android.Manifest;
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.Dialog;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
 import android.os.Bundle;
@@ -17,6 +19,8 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.navigation.NavController;
@@ -50,16 +54,12 @@ import java.util.Optional;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
-import lombok.Getter;
 import lombok.val;
 
 public class MainActivity extends DataBindingActivity<ActivityMainBinding> implements Client.Delegate, KSCertificateManagerExt.Delegate {
     private InterFragmentStore interFragmentStore;
     private AppBarConfiguration appBarConfiguration;
     private Dialog loadingPopup;
-
-    @Getter
-    private CloudRepository cloudRepository;
 
     @Override
     @SuppressLint("NonConstantResourceId")
@@ -114,6 +114,19 @@ public class MainActivity extends DataBindingActivity<ActivityMainBinding> imple
         loadingPopup.setOnCancelListener(null);
 
         getSupportActionBar().setSubtitle("v" + BuildConfig.VERSION_NAME);
+
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+            if (ActivityCompat.shouldShowRequestPermissionRationale(
+                    this, Manifest.permission.WRITE_EXTERNAL_STORAGE)) {
+                ActivityCompat.requestPermissions(this,
+                        new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE},
+                        REQ_PERMISSION);
+            } else {
+                ActivityCompat.requestPermissions(this,
+                        new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE},
+                        REQ_PERMISSION);
+            }
+        }
     }
 
     @Override

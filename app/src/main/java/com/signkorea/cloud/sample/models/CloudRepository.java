@@ -81,7 +81,10 @@ public class CloudRepository {
                 break;
 
             case local:
-                certMgr.getUserCertificateListLocal(certs -> onComplete.run(), onError);
+                certMgr.getUserCertificateListLocal(certs -> {
+                    this.certificates = certs;
+                    onComplete.run();
+                }, onError);
                 break;
 
             default:

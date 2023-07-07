@@ -256,8 +256,4 @@ public class DataBindingFragment<BindingT extends ViewDataBinding> extends Fragm
     public void dismissLoading() {
         ((MainActivity)requireActivity()).dismissLoading();
     }
-
-    public void getCloudRepo() {
-        ((MainActivity)requireActivity()).getCloudRepository();
-    }
 }

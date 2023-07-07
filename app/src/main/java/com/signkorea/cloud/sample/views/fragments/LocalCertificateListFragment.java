@@ -12,14 +12,12 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.navigation.Navigation;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.lumensoft.ks.KSException;
 import com.signkorea.certmanager.BillActivity;
 import com.signkorea.cloud.Bio;
 import com.signkorea.cloud.KSCertificateExt;
-import com.signkorea.cloud.sample.R;
 import com.signkorea.cloud.sample.databinding.FragmentLocalCertificateListBinding;
 import com.signkorea.cloud.sample.databinding.ItemCertificateBinding;
 import com.signkorea.cloud.sample.enums.CertificateOperation;
@@ -74,7 +72,7 @@ public class LocalCertificateListFragment
                                 .setTitle(operation.getLabel())
                                 .setMessage("로컬 저장소에 내 인증서가 없습니다.")
                                 .setPositiveButton(android.R.string.ok, (dialog, which) -> {
-                                    Navigation.findNavController(getView()).navigate(R.id.homeFragment);
+                                    getNavController().popBackStack();
                                 })
                                 .show();
                         break;
@@ -133,33 +131,37 @@ public class LocalCertificateListFragment
 
             new AlertDialog.Builder(requireContext())
                     .setTitle(operation.getLabel() + " 성공")
-                    .setMessage(cert.getSubject() + "\n추가로 생체정보 등록을 진행 하시겠습니까?")
+                    .setMessage(cert.getSubjectC() + " 인증서가 등록 되었습니다" + "\n생체 인증도 함께 사용 하시겠습니까?")
                     .setPositiveButton(android.R.string.ok, (dialog, which) -> {
                         try {
+                            Toast.makeText(requireContext(), "생체 등록을 진행합니다.", Toast.LENGTH_SHORT).show();
                             bio = new Bio(requireActivity(), repo.getCertMgr());
                             bio.setCallback(this);
+
+                            // 직전 등록한 인증서를 포함한 목록을 로딩
                             repo.loadCertificates(CloudRepository.DataSource.remote,
                                     () -> {
-                                        KSCertificateExt registeredCert = repo.getCertificates().stream().filter(c -> c.getSubject().equalsIgnoreCase(dn)).findFirst().orElse(null);
+                                        KSCertificateExt registeredCert = repo.getCertificates().stream()
+                                                .filter(c -> c.getSubject().equalsIgnoreCase(dn))
+                                                .findFirst()
+                                                .orElse(null);
                                         if(registeredCert != null) {
                                             String id = registeredCert.getId();
-                                            if(bio.isBio(id)) {
+                                            if(bio.isBio(id))
                                                 bio.removeBioCloud(id);
 
-                                                PasswordDialog.show(requireContext(),
-                                                        operation.getLabel(),
-                                                        true,
-                                                        false,
-                                                        "",
-                                                        pin -> bio.addBioCloud(id, new SecureData(pin.getBytes())),
-                                                        this::dismissLoading);
-                                            }
+                                            PasswordDialog.show(requireContext(),
+                                                    operation.getLabel(),
+                                                    true,
+                                                    false,
+                                                    "",
+                                                    pin -> bio.addBioCloud(id, new SecureData(pin.getBytes())),
+                                                    this::dismissLoading);
                                         }
-                                    }, e -> new AlertDialog.Builder(requireContext())
-                                            .setTitle("인증서 목록 로딩 실패")
-                                            .setMessage(e.toString())
-                                            .setPositiveButton(android.R.string.ok, null)
-                                            .show());
+                                        else {
+                                            Toast.makeText(requireContext(), "생체 등록 대상 인증서를 찾지 못했습니다.", Toast.LENGTH_SHORT).show();
+                                        }
+                                    }, e -> alertException(e, "인증서 목록 로딩 실패", true));
                         }
                         catch (Exception e)
                         {
