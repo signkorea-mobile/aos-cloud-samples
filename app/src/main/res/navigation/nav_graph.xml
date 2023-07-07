@@ -29,9 +29,6 @@
         <action
             android:id="@+id/action_accountManagementFragment_to_autoConnectionDevicesFragment"
             app:destination="@id/autoConnectionDevicesFragment" />
-        <action
-            android:id="@+id/action_accountManagementFragment_to_secureSettingFragment"
-            app:destination="@id/secureSettingFragment" />
     </fragment>
 
     <fragment
@@ -55,12 +52,6 @@
         android:name="com.signkorea.cloud.sample.views.fragments.AutoConnectionDevicesFragment"
         android:label="자동 연결"
         tools:layout="@layout/fragment_auto_connection_devices" />
-
-    <fragment
-        android:id="@+id/secureSettingFragment"
-        android:name="com.signkorea.cloud.sample.views.fragments.SecureSettingFragment"
-        android:label="보안 설정"
-        tools:layout="@layout/fragment_secure_setting" />
 
     <fragment
         android:id="@+id/localCertificateListFragment"

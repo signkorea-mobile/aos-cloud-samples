@@ -39,17 +39,6 @@
                 tools:ignore="HardcodedText" />
 
             <Button
-                android:id="@+id/secureSettingButton"
-                android:layout_width="match_parent"
-                android:layout_height="50dp"
-                android:layout_marginTop="16dp"
-                android:text="보안 설정"
-                android:backgroundTint="#E65619"
-                android:insetTop="0dp"
-                android:insetBottom="0dp"
-                tools:ignore="HardcodedText" />
-
-            <Button
                 android:id="@+id/closeAccountButton"
                 android:layout_width="match_parent"
                 android:layout_height="50dp"

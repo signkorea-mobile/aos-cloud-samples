@@ -92,7 +92,7 @@ public class LocalCertificateListFragment
         };
 
         showLoading();
-        getViewModel().loadData(CloudRepository.DataSource.local, null, completion, onError);
+        getViewModel().loadData(CloudRepository.DataSource.local, null, (operation == CertificateOperation.updateLocal), completion, onError);
     }
 
     @Override

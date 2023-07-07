@@ -41,9 +41,6 @@ public class LoginFragment extends DataBindingFragment<FragmentLoginBinding> imp
         Runnable refreshUI = () -> {
             dismissLoading();
 
-            getBinding().selectdnText.setText(selectedCert.getSubject());
-            getBinding().authTypeBtnPin.setVisibility(View.VISIBLE);
-
             menuType = LoginFragmentArgs.fromBundle(getArguments()).getSignMenuType();
             switch(menuType) {
                 case LOGIN:
@@ -62,11 +59,17 @@ public class LoginFragment extends DataBindingFragment<FragmentLoginBinding> imp
                     break;
             }
 
-            if (selectedCert != null && selectedCert.isCloud() && bio.isBio(selectedCert.getId()))
-                getBinding().deleteBio.setVisibility(View.VISIBLE);
-            else
+            if(selectedCert == null) {
+                getBinding().authTypeBtnPin.setVisibility(View.INVISIBLE);
                 getBinding().deleteBio.setVisibility(View.INVISIBLE);
-
+            }
+            else {
+                getBinding().selectdnText.setText(selectedCert.getSubject());
+                getBinding().authTypeBtnPin.setVisibility(View.VISIBLE);
+                if(selectedCert.isCloud() && bio.isBio(selectedCert.getId())){
+                    getBinding().deleteBio.setVisibility(View.VISIBLE);
+                }
+            }
         };
 
         if(repo.getDataSource() == CloudRepository.DataSource.remote) {

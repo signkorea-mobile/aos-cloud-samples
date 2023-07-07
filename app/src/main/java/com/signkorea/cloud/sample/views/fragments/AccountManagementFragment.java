@@ -33,10 +33,6 @@ public class AccountManagementFragment extends DataBindingFragment<FragmentAccou
         direction = AccountManagementFragmentDirections.actionAccountManagementFragmentToAutoConnectionDevicesFragment();
         getBinding().autoConnectDevicesButton.setOnClickListener(Navigation.createNavigateOnClickListener(direction));
 
-        // 보안 설정
-        direction = AccountManagementFragmentDirections.actionAccountManagementFragmentToSecureSettingFragment();
-        getBinding().secureSettingButton.setOnClickListener(Navigation.createNavigateOnClickListener(direction));
-
         getBinding().closeAccountButton.setOnClickListener(this::deleteAccount);    // 탈퇴
         getBinding().disconnectButton.setOnClickListener(this::onDisconnect);   // 연결 끊기
     }
