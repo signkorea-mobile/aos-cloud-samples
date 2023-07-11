@@ -246,6 +246,7 @@ public class DataBindingFragment<BindingT extends ViewDataBinding> extends Fragm
                 default: return exception.getMessage();
             }
         })
+        .is(RuntimeException.class, Throwable::getMessage)
         .is(SocketTimeoutException.class, ignored -> "서버에서 응답이 없습니다.")
         .orElse(ignored -> "알 수 없는 오류가 발생하였습니다.");
 

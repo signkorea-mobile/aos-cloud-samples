@@ -197,10 +197,13 @@ public class CloudRepository {
     public void disconnect(Runnable onComplete, Consumer<Exception> onError) {
         certMgr.client.checkConnect(connected -> {
                 if(connected) {
-                    certMgr.client.disconnect(onComplete, onError);
+                    certMgr.client.disconnect(() -> {
+                        certificates = null;
+                        onComplete.run();
+                    }, onError);
                 }
                 else {
-                    onError.accept(new KSException(-1, "클라우드에 연결되어 있지 않습니다."));
+                    onError.accept(new RuntimeException("클라우드에 연결되어 있지 않습니다."));
                 }
             }, onError);
     }

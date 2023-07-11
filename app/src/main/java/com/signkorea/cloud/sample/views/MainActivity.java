@@ -60,6 +60,7 @@ public class MainActivity extends DataBindingActivity<ActivityMainBinding> imple
     private InterFragmentStore interFragmentStore;
     private AppBarConfiguration appBarConfiguration;
     private Dialog loadingPopup;
+    private final int REQ_PERMISSION = 111;
 
     @Override
     @SuppressLint("NonConstantResourceId")
