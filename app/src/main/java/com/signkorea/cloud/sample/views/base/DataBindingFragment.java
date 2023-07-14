@@ -16,6 +16,7 @@ import androidx.lifecycle.ViewModelProvider;
 import androidx.navigation.NavController;
 
 import com.lumensoft.ks.KSException;
+import com.signkorea.cloud.sample.R;
 import com.signkorea.cloud.sample.models.CloudRepository;
 import com.signkorea.cloud.sample.viewModels.InterFragmentStore;
 import com.signkorea.cloud.sample.views.MainActivity;
@@ -34,6 +35,7 @@ import java.net.SocketTimeoutException;
 import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Optional;
 import java.util.function.Function;
 
 import lombok.val;
@@ -94,6 +96,12 @@ public class DataBindingFragment<BindingT extends ViewDataBinding> extends Fragm
         return ((MainActivity)requireActivity()).getNavController();
     }
 
+    protected void navigateToReturnView() {
+        int returnViewId = (int) Optional.ofNullable(getInterFragmentStore().remove(InterFragmentStore.MO_RETURN_VIEW_ID))
+                .orElse(R.id.homeFragment);
+        getNavController().popBackStack(returnViewId, false);
+    }
+
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
@@ -107,8 +115,6 @@ public class DataBindingFragment<BindingT extends ViewDataBinding> extends Fragm
         dismissLoading();
         Runnable proceed = () -> {
             getNavController().popBackStack(myDestinationId, popBackStack);
-
-            getInterFragmentStore().remove(InterFragmentStore.MO_ACTION_CANCEL);
 
             if (completion != null) {
                 completion.run();

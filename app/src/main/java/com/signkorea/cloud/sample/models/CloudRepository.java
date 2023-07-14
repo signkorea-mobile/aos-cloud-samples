@@ -37,12 +37,14 @@ public class CloudRepository {
     @Getter
     private KSCertificateManagerExt certMgr;
 
-    @Getter
     private List<KSCertificateExt> certificates;
     @Getter
     private KSCertificateExt selectedCert;
     @Getter
     private DataSource dataSource = null;
+
+
+    public List<KSCertificateExt> getCertificates() { return certificates; }
 
     public void init(Context context,
                      Client.Delegate clientDelegate,
@@ -59,10 +61,10 @@ public class CloudRepository {
     }
 
     public void loadCertificates(DataSource source, Runnable onComplete, Consumer<Exception> onError) {
-        this.dataSource = source;
         switch(source) {
             case remote:
                 certMgr.getUserCertificateListCloud(certs -> {
+                    this.dataSource = source;
                     this.certificates = certs;
 
                     // 이전에 사용했던 인증서 SubjectDn가 로딩한 인증서 목록에서 존재하는지 확인
@@ -82,6 +84,7 @@ public class CloudRepository {
 
             case local:
                 certMgr.getUserCertificateListLocal(certs -> {
+                    this.dataSource = source;
                     this.certificates = certs;
                     onComplete.run();
                 }, onError);

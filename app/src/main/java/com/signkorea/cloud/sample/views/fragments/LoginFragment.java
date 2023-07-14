@@ -68,26 +68,44 @@ public class LoginFragment extends DataBindingFragment<FragmentLoginBinding> imp
                 getBinding().authTypeBtnPin.setVisibility(View.VISIBLE);
                 if(selectedCert.isCloud() && bio.isBio(selectedCert.getId())){
                     getBinding().deleteBio.setVisibility(View.VISIBLE);
+                    getBinding().authTypeBtnFinger.setVisibility(View.VISIBLE);
                 }
             }
         };
 
-        if(repo.getDataSource() == CloudRepository.DataSource.remote) {
-            selectedCert = repo.getSelectedCert();
+        selectedCert = repo.getSelectedCert();
+        // 클라우드에 연결되어 있지 않거나, 선택한 인증서가 없는 경우
+        // 현재 화면에서 인증서 조회하지 않음. -> 목록 화면에서 처리
+        if(selectedCert == null) {
             refreshUI.run();
         }
         else {
-            Consumer<Exception> onError = e -> {
-                menuType = LoginFragmentArgs.fromBundle(getArguments()).getSignMenuType();
-                alertException(e, menuType.getLabel(), true);
-            };
+            boolean refreshCertList = false;
+            // 현재 로딩되어 있는 목록이 로컬 인증서인 경우 클라우드 인증서 목록 로딩
+            if(repo.getDataSource() == CloudRepository.DataSource.local)
+                refreshCertList = true;
+            // 로그인, 타기관 인증서 등록의 경우는 서버로부터 인증서 목록을 갱신
+            else if(menuType == SignMenuType.LOGIN || menuType == SignMenuType.REGISTER)
+                refreshCertList = true;
+            // 주문의 경우는 클라우드 인증서로 로그인 서명 성공 후 사용하므로 기존 목록 재사용
+            else    // menuType == SignMenuType.ORDER
+                refreshCertList = false;
 
-            showLoading();
-            repo.loadCertificates(CloudRepository.DataSource.remote, () -> {
-                selectedCert = repo.getSelectedCert();
+            if(refreshCertList) {
+                Consumer<Exception> onError = e -> {
+                    menuType = LoginFragmentArgs.fromBundle(getArguments()).getSignMenuType();
+                    alertException(e, menuType.getLabel(), true);
+                };
 
+                showLoading();
+                repo.loadCertificates(CloudRepository.DataSource.remote, () -> {
+                    selectedCert = repo.getSelectedCert();
+                    refreshUI.run();
+                }, onError);
+            }
+            else {
                 refreshUI.run();
-            }, onError);
+            }
         }
     }
 
@@ -274,6 +292,7 @@ public class LoginFragment extends DataBindingFragment<FragmentLoginBinding> imp
         String id = selectedCert.getCertInfo().getId();
         if (bio.isBio(id)) {
             bio.removeBioCloud(id);
+            getBinding().authTypeBtnFinger.setVisibility(View.INVISIBLE);
             message = "등록된 생체 인증을 삭제하였습니다.";
         } else {
             message = "등록된 생체 인증이 없습니다.";

@@ -58,16 +58,13 @@ public class AccountManagementFragment extends DataBindingFragment<FragmentAccou
                 new AlertDialog.Builder(requireContext())
                         .setTitle("회원 탈퇴 실패")
                         .setMessage("공동 인증 서비스 회원이 아닙니다.")
-                        .setPositiveButton(android.R.string.ok, (dialog, which) -> Optional
-                                .ofNullable(getInterFragmentStore().<Runnable>remove(InterFragmentStore.MO_ACTION_CANCEL))
-                                .ifPresent(Runnable::run)
-                        )
+                        .setPositiveButton(android.R.string.ok, null)   // TODO 회원이 아닐 때 MO가 뜨나? OK에서 별도로 해야하는 것이 있는지 확인
                         .show();
             } else {
                 new AlertDialog.Builder(requireContext())
                         .setTitle("회원 탈퇴 실패")
                         .setMessage(exception.toString())
-                        .setPositiveButton(android.R.string.ok, (dialog, which) -> {})
+                        .setPositiveButton(android.R.string.ok, null)
                         .show();
             }
         };

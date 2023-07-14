@@ -1,5 +1,7 @@
 package com.signkorea.cloud.sample.viewModels;
 
+import android.util.Log;
+
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.lifecycle.ViewModel;
@@ -10,8 +12,10 @@ import com.signkorea.securedata.ProtectedData;
 import com.signkorea.securedata.SecureData;
 import com.yettiesoft.cloud.models.ExportedCertificate;
 
+import java.util.ArrayList;
 import java.util.Hashtable;
 import java.util.List;
+import java.util.Optional;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
@@ -24,8 +28,9 @@ import lombok.val;
 public class CertificateListFragmentViewModel extends ViewModel {
     private CloudRepository repo = CloudRepository.getInstance();
 
-    @Getter
     private List<KSCertificateExt> certificates;
+
+    public List<KSCertificateExt> getCertificates() { return certificates; }
 
     @SneakyThrows
     public void loadData(CloudRepository.DataSource dataSource,
@@ -41,7 +46,10 @@ public class CertificateListFragmentViewModel extends ViewModel {
                          @NonNull Runnable completion,
                          @NonNull Consumer<Exception> onError) {
         Runnable innerComplete = () -> {
-            certificates = repo.getCertificates();
+            if (repo.getCertificates() == null)
+                Log.e("AA", "aa");
+
+            certificates = new ArrayList(repo.getCertificates());
             if(filter != null)
                 certificates = certificates.stream().filter(filter).collect(Collectors.toList());
             completion.run();

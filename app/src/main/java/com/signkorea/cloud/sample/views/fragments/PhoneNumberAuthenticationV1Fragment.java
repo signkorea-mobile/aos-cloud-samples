@@ -15,6 +15,7 @@ import com.signkorea.cloud.sample.viewModels.InterFragmentStore;
 import com.signkorea.cloud.sample.views.base.DataBindingFragment;
 import com.yettiesoft.cloud.PhoneNumberProofTransaction;
 
+import java.util.Optional;
 import java.util.Timer;
 import java.util.TimerTask;
 
@@ -22,8 +23,9 @@ import lombok.val;
 
 public class PhoneNumberAuthenticationV1Fragment extends DataBindingFragment<FragmentPhoneNumberAuthenticationV1Binding> {
     private PhoneNumberProofTransaction transaction;
+    private Runnable onCancel;
+
     private Timer timer = null;
-    private Runnable confirmAction = null;
 
     @SuppressWarnings("ConstantConditions")
     @Override
@@ -44,11 +46,11 @@ public class PhoneNumberAuthenticationV1Fragment extends DataBindingFragment<Fra
 
         transaction = getInterFragmentStore().remove(
             R.id.phoneNumberAuthenticationV1Fragment,
-            InterFragmentStore.MO_API_TRANSACTION);
+            InterFragmentStore.MO_API_EXECUTOR);
 
-        confirmAction = getInterFragmentStore().remove(
-            R.id.phoneNumberAuthenticationV1Fragment,
-            InterFragmentStore.MO_ACTION_CONFIRM);
+        onCancel = getInterFragmentStore().remove(
+                R.id.phoneNumberAuthenticationV1Fragment,
+                InterFragmentStore.MO_API_CANCEL);
 
         // 확인
         getBinding().confirmButton.setEnabled(false);
@@ -71,6 +73,12 @@ public class PhoneNumberAuthenticationV1Fragment extends DataBindingFragment<Fra
         unschedule();
     }
 
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        getInterFragmentStore().remove(R.id.phoneNumberAuthenticationV1Fragment, InterFragmentStore.MO_API_CANCEL);
+    }
+
     @SuppressLint({"SetTextI18n", "DefaultLocale"})
     private void updateTime(PhoneNumberProofTransaction.Status status) {
         switch (status) {
@@ -83,7 +91,7 @@ public class PhoneNumberAuthenticationV1Fragment extends DataBindingFragment<Fra
 
             case Complete: {
                 // MO인증이 완료된 경우 후속 진행 처리
-                confirmAction.run();
+                confirm();
             } break;
 
             case Canceled:
@@ -143,16 +151,16 @@ public class PhoneNumberAuthenticationV1Fragment extends DataBindingFragment<Fra
         return false;
     }
 
-    @SuppressWarnings("ConstantConditions")
-    private void cancel() {
-        getInterFragmentStore().<Runnable>remove(InterFragmentStore.MO_ACTION_CANCEL).run();
-        getInterFragmentStore().<Runnable>remove(R.id.phoneNumberAuthenticationV1Fragment, InterFragmentStore.MO_API_CANCEL).run();
+    private void confirm() {
+        transaction.commit();
+        navigateToReturnView();      // MO에 진입하기 전 화면으로 이동
     }
 
-    @Override
-    public void onDestroy() {
-        super.onDestroy();
-        getInterFragmentStore().remove(R.id.phoneNumberAuthenticationV1Fragment, InterFragmentStore.MO_ACTION_CANCEL);
+    @SuppressWarnings("ConstantConditions")
+    private void cancel() {
+        transaction.cancel();
+        onCancel.run();
+        navigateToReturnView();      // MO에 진입하기 전 화면으로 이동
     }
 
     private void schedule() {

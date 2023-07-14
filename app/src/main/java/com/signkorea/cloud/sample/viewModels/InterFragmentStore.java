@@ -10,10 +10,9 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class InterFragmentStore extends ViewModel {
-    public static final String MO_ACTION_CONFIRM = "MO AUTH confirm action";
-    public static final String MO_ACTION_CANCEL = "MO AUTH cancel action";
-    public static final String MO_API_TRANSACTION = "MO API transaction";
+    public static final String MO_API_EXECUTOR = "MO API transaction";
     public static final String MO_API_CANCEL = "MO API cancel";
+    public static final String MO_RETURN_VIEW_ID = "MO return view ID";
     public static final String BILL_ACTION_COMPLETE = "Bill complete action";
     public static final String BILL_ACTION_CANCEL = "Bill cancel action";
 

@@ -29,6 +29,7 @@ import lombok.val;
 
 public class ConditionsOfUseFragment extends DataBindingFragment<FragmentConditionsOfUseBinding> {
     private BiConsumer<String, String> onAgree;
+    private Runnable onCancel;
     private AcknowledgeConditionsOfUseReason reason;
 
     private final OnceRunnable loadPage = new OnceRunnable(() -> getBinding().webView.loadUrl(getUrl()));
@@ -95,7 +96,11 @@ public class ConditionsOfUseFragment extends DataBindingFragment<FragmentConditi
 
         onAgree = getInterFragmentStore().remove(
             R.id.conditionsOfUseFragment,
-            InterFragmentStore.MO_ACTION_CONFIRM);
+            InterFragmentStore.MO_API_EXECUTOR);
+
+        onCancel = getInterFragmentStore().remove(
+                R.id.conditionsOfUseFragment,
+                InterFragmentStore.MO_API_CANCEL);
 
         reason = ConditionsOfUseFragmentArgs.fromBundle(getArguments()).getReason();
     }
@@ -116,28 +121,13 @@ public class ConditionsOfUseFragment extends DataBindingFragment<FragmentConditi
         @JavascriptInterface
         public void cancel() {
             new Handler(Looper.getMainLooper()).post(() -> {
-                if (reason == AcknowledgeConditionsOfUseReason.updated) {
-                    new AlertDialog.Builder(requireContext())
-                        .setTitle("약관 개정 안내")
-                        .setMessage("개정된 약관에 동의하신 후 서비스를 이용하실 수 있습니다.")
-                        .setPositiveButton(android.R.string.ok, null)
-                        .setNegativeButton(android.R.string.cancel, (dialog, which) -> ConditionsOfUseFragment.this.cancel())
-                        .show();
-                } else {
-                    cancel();
-                }
+                ConditionsOfUseFragment.this.cancel();
             });
         }
     }
 
     private void cancel() {
-        getInterFragmentStore().<Runnable>remove(R.id.conditionsOfUseFragment, InterFragmentStore.MO_API_CANCEL).run();
-        getInterFragmentStore().<Runnable>remove(InterFragmentStore.MO_ACTION_CANCEL).run();
-    }
-
-    @Override
-    public void onDestroy() {
-        super.onDestroy();
-        getInterFragmentStore().remove(R.id.conditionsOfUseFragment, InterFragmentStore.MO_API_CANCEL);
+        onCancel.run();
+        navigateToReturnView();
     }
 }

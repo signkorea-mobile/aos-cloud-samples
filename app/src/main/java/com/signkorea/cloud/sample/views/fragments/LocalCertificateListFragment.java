@@ -10,14 +10,17 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Toast;
 
+import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.lumensoft.ks.KSCertificateLoader;
 import com.lumensoft.ks.KSException;
 import com.signkorea.certmanager.BillActivity;
 import com.signkorea.cloud.Bio;
 import com.signkorea.cloud.KSCertificateExt;
+import com.signkorea.cloud.KSCertificateManagerExt;
 import com.signkorea.cloud.sample.databinding.FragmentLocalCertificateListBinding;
 import com.signkorea.cloud.sample.databinding.ItemCertificateBinding;
 import com.signkorea.cloud.sample.enums.CertificateOperation;
@@ -100,6 +103,15 @@ public class LocalCertificateListFragment
         operation = LocalCertificateListFragmentArgs.fromBundle(getArguments()).getOperation();
 
         getBinding().recyclerView.setAdapter(adapter);
+        
+        requireActivity().getOnBackPressedDispatcher().addCallback(getViewLifecycleOwner(), new OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                if(operation == CertificateOperation.register) {
+
+                }
+            }
+        });
     }
 
     @Override
@@ -131,7 +143,7 @@ public class LocalCertificateListFragment
 
             new AlertDialog.Builder(requireContext())
                     .setTitle(operation.getLabel() + " 성공")
-                    .setMessage(cert.getSubjectC() + " 인증서가 등록 되었습니다" + "\n생체 인증도 함께 사용 하시겠습니까?")
+                    .setMessage("인증서가 클라우드에 저장 되었습니다." + "\n생체 인증도 함께 사용 하시겠습니까?")
                     .setPositiveButton(android.R.string.ok, (dialog, which) -> {
                         try {
                             Toast.makeText(requireContext(), "생체 등록을 진행합니다.", Toast.LENGTH_SHORT).show();
@@ -151,7 +163,7 @@ public class LocalCertificateListFragment
                                                 bio.removeBioCloud(id);
 
                                             PasswordDialog.show(requireContext(),
-                                                    operation.getLabel(),
+                                                    operation.getLabel() + " - 생체 등록",
                                                     true,
                                                     false,
                                                     "",

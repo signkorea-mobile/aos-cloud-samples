@@ -26,8 +26,8 @@ import lombok.val;
 
 public class PhoneNumberAuthenticationV2Fragment extends DataBindingFragment<FragmentPhoneNumberAuthenticationV2Binding> {
     private PhoneNumberProofTransaction transaction;
+    private Runnable onCancel;
     private Timer timer = null;
-    private Runnable confirmAction = null;
 
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
@@ -46,19 +46,15 @@ public class PhoneNumberAuthenticationV2Fragment extends DataBindingFragment<Fra
 
         transaction = getInterFragmentStore().remove(
             R.id.phoneNumberAuthenticationV2Fragment,
-            InterFragmentStore.MO_API_TRANSACTION);
+            InterFragmentStore.MO_API_EXECUTOR);
 
-        confirmAction = getInterFragmentStore().remove(
-            R.id.phoneNumberAuthenticationV2Fragment,
-            InterFragmentStore.MO_ACTION_CONFIRM);
+        onCancel = getInterFragmentStore().remove(
+                R.id.phoneNumberAuthenticationV2Fragment,
+                InterFragmentStore.MO_API_CANCEL);
 
         // 확인
         getBinding().confirmButton.setEnabled(false);
         getBinding().confirmButton.setBackgroundColor(0xff505050);
-        getBinding().confirmButton.setOnClickListener(button -> {
-            //noinspection ConstantConditions
-            confirmAction.run();
-        });
 
         // 취소
         getBinding().cancelButton.setOnClickListener(button -> cancel());
@@ -82,16 +78,22 @@ public class PhoneNumberAuthenticationV2Fragment extends DataBindingFragment<Fra
         unschedule();
     }
 
-    @SuppressWarnings("ConstantConditions")
-    private void cancel() {
-        getInterFragmentStore().<Runnable>remove(InterFragmentStore.MO_ACTION_CANCEL).run();
-        getInterFragmentStore().<Runnable>remove(R.id.phoneNumberAuthenticationV2Fragment, InterFragmentStore.MO_API_CANCEL).run();
-    }
-
     @Override
     public void onDestroy() {
         super.onDestroy();
-        getInterFragmentStore().remove(R.id.phoneNumberAuthenticationV2Fragment, InterFragmentStore.MO_ACTION_CANCEL);
+        getInterFragmentStore().remove(R.id.phoneNumberAuthenticationV2Fragment, InterFragmentStore.MO_API_CANCEL);
+    }
+
+    private void confirm() {
+        transaction.commit();
+        navigateToReturnView();
+    }
+
+    @SuppressWarnings("ConstantConditions")
+    private void cancel() {
+        transaction.cancel();
+        onCancel.run();
+        navigateToReturnView();      // MO에 진입하기 전 화면으로 이동
     }
 
     private void sendMessage() {
@@ -128,7 +130,7 @@ public class PhoneNumberAuthenticationV2Fragment extends DataBindingFragment<Fra
 
             case Complete: {
                 // MO인증이 완료된 경우 후속 진행 처리
-                confirmAction.run();
+                confirm();
             } break;
 
             case Canceled:
