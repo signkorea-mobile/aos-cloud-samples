@@ -21,10 +21,14 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 
 public class UserInfoFormFragment extends ViewModelFragment<FragmentUserInfoFormBinding, UserInfoFormFragmentViewModel> {
+    private Runnable onCancel;
+
     @SuppressWarnings("ConstantConditions")
     @Override
     public void onCreate(@Nullable @org.jetbrains.annotations.Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        onCancel = getInterFragmentStore().remove(R.id.userInfoFormFragment, InterFragmentStore.MO_API_CANCEL);
 
         getActivity().getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override
@@ -43,7 +47,7 @@ public class UserInfoFormFragment extends ViewModelFragment<FragmentUserInfoForm
 
         Client.UserInfoAcceptor userInfoAcceptor = getInterFragmentStore().remove(
                 R.id.userInfoFormFragment,
-                InterFragmentStore.MO_ACTION_CONFIRM);
+                InterFragmentStore.MO_API_EXECUTOR);
 
         // 확인
         getBinding().confirmButton.setOnClickListener(button -> {
@@ -98,13 +102,6 @@ public class UserInfoFormFragment extends ViewModelFragment<FragmentUserInfoForm
     }
 
     private void cancel() {
-        getInterFragmentStore().<Runnable>remove(R.id.userInfoFormFragment, InterFragmentStore.MO_API_CANCEL).run();
-        getInterFragmentStore().<Runnable>remove(InterFragmentStore.MO_ACTION_CANCEL).run();
-    }
-
-    @Override
-    public void onDestroy() {
-        super.onDestroy();
-        getInterFragmentStore().remove(R.id.userInfoFormFragment, InterFragmentStore.MO_API_CANCEL);
+        onCancel.run();
     }
 }

@@ -2,10 +2,15 @@ package com.signkorea.cloud.sample.viewModels;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.fragment.app.FragmentActivity;
 import androidx.lifecycle.ViewModel;
 
+import com.signkorea.cloud.Bio;
 import com.signkorea.cloud.KSCertificateExt;
+import com.signkorea.cloud.sample.enums.DataSource;
 import com.signkorea.cloud.sample.models.CloudRepository;
+import com.signkorea.cloud.sample.models.LocalRepository;
+import com.signkorea.cloud.sample.models.Repository;
 import com.signkorea.securedata.ProtectedData;
 import com.signkorea.securedata.SecureData;
 import com.yettiesoft.cloud.models.ExportedCertificate;
@@ -17,44 +22,31 @@ import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
-import lombok.Getter;
-import lombok.SneakyThrows;
-import lombok.val;
-
 public class CertificateListFragmentViewModel extends ViewModel {
-    private CloudRepository repo = CloudRepository.getInstance();
 
-    @Getter
+    private final CloudRepository cloudRepo = CloudRepository.getInstance();
+    private final LocalRepository localRepo = LocalRepository.getInstance();
+    private DataSource dataSource;
+
     private List<KSCertificateExt> certificates;
 
-    @SneakyThrows
-    public void loadData(CloudRepository.DataSource dataSource,
-                         Predicate<KSCertificateExt> filter,
-                         @NonNull Runnable completion,
-                         @NonNull Consumer<Exception> onError) {
-        loadData(dataSource, filter, false, completion, onError);
-    }
+    public List<KSCertificateExt> getCertificates() { return certificates; }
 
-    public void loadData(CloudRepository.DataSource dataSource,
+    public void loadData(DataSource dataSource,
                          Predicate<KSCertificateExt> filter,
-                         boolean forceRun,                      // 인증서 목록을 항상 다시 로딩해야 하는 경우 (인증서 갱신 등)
                          @NonNull Runnable completion,
                          @NonNull Consumer<Exception> onError) {
+        this.dataSource = dataSource;
+        Repository repo = (dataSource == DataSource.remote) ? cloudRepo : localRepo;
+
         Runnable innerComplete = () -> {
             certificates = repo.getCertificates();
-            if(filter != null)
+            if(certificates != null && filter != null)
                 certificates = certificates.stream().filter(filter).collect(Collectors.toList());
             completion.run();
         };
 
-        // 이전 로딩한 인증서 데이터 소스와 다른 경우 재로딩
-        if(dataSource == repo.getDataSource() && !forceRun) {
-            innerComplete.run();
-            return;
-        }
-
-        repo.loadCertificates(dataSource, innerComplete, onError);
-
+        repo.loadCertificates(innerComplete, onError);
     }
 
     public void registerCertificate(
@@ -64,18 +56,17 @@ public class CertificateListFragmentViewModel extends ViewModel {
         @Nullable byte[] kmKey,
         @NonNull String secret,
         @NonNull String pin,
-        @NonNull Runnable completion,
+        @NonNull Runnable onComplete,
         @NonNull Consumer<Exception> onError)
     {
-        assert repo.getDataSource() == CloudRepository.DataSource.local;
-
         ProtectedData encryptedSecret = new SecureData(secret.getBytes());
         ProtectedData encryptedpin = new SecureData(pin.getBytes());
 
         Runnable innerCompletion = () -> {
             encryptedSecret.clear();
             encryptedpin.clear();
-            completion.run();
+            // 클라우드 보관 후 클라우드 목록 갱신
+            cloudRepo.loadCertificates(onComplete, onError);
         };
 
         Consumer<Exception> innerError = e -> {
@@ -84,14 +75,17 @@ public class CertificateListFragmentViewModel extends ViewModel {
             onError.accept(e);
         };
 
-        repo.importCertificate(certificate, key, kmCertificate, kmKey, encryptedSecret, encryptedpin, innerCompletion, innerError);
+        localRepo.importCertificate(certificate, key,
+                kmCertificate, kmKey,
+                encryptedSecret, encryptedpin,
+                innerCompletion, innerError);
     }
 
     public void exportCertificate(
         int index,
         @NonNull String pin,
         @NonNull String secret,
-        @NonNull BiConsumer<ExportedCertificate, Boolean> completion,
+        @NonNull BiConsumer<ExportedCertificate, Boolean> onComplete,
         @NonNull Consumer<Exception> onError)
     {
         KSCertificateExt cert = certificates.get(index);
@@ -102,7 +96,7 @@ public class CertificateListFragmentViewModel extends ViewModel {
         BiConsumer<ExportedCertificate, Boolean> innerCompletion = (certificate, fromCache) -> {
             encryptedSecret.clear();
             encryptedpin.clear();
-            completion.accept(certificate, fromCache);
+            onComplete.accept(certificate, fromCache);
         };
 
         Consumer<Exception> innerError = e -> {
@@ -111,14 +105,16 @@ public class CertificateListFragmentViewModel extends ViewModel {
             onError.accept(e);
         };
 
-        repo.exportCertificate(cert.getId(), encryptedpin, encryptedSecret, innerCompletion, innerError);
+        cloudRepo.exportCertificate(cert.getId(),
+                encryptedpin, encryptedSecret,
+                innerCompletion, innerError);
     }
 
     public void changeCertificatePin(
         int index,
         @NonNull String oldPin,
         @NonNull String newPin,
-        @NonNull Runnable completion,
+        @NonNull Runnable onComplete,
         @NonNull Consumer<Exception> onError)
     {
         KSCertificateExt cert = certificates.get(index);
@@ -129,7 +125,7 @@ public class CertificateListFragmentViewModel extends ViewModel {
         Runnable innerCompletion = () -> {
             encryptedOldPin.clear();
             encryptedNewPin.clear();
-            completion.run();
+            onComplete.run();
         };
 
         Consumer<Exception> innerError = e -> {
@@ -138,28 +134,30 @@ public class CertificateListFragmentViewModel extends ViewModel {
             onError.accept(e);
         };
 
-        repo.changeCertificatePin(cert.getId(), encryptedOldPin, encryptedNewPin, innerCompletion, innerError);
+        cloudRepo.changeCertificatePin(cert.getId(),
+                encryptedOldPin, encryptedNewPin,
+                innerCompletion, innerError);
     }
 
     public void deleteCertificate(
         int index,
-        @NonNull Runnable completion,
+        @NonNull Runnable onComplete,
         @NonNull Consumer<Exception> onError)
     {
         KSCertificateExt cert = certificates.get(index);
 
-        repo.deleteCertificate(cert.getId(), () -> {
-            certificates = repo.getCertificates();      // 삭제된 인증서 리스트 반영
-            completion.run();
+        cloudRepo.deleteCertificate(cert.getId(), () -> {
+            certificates = cloudRepo.getCertificates();      // 삭제된 인증서 리스트 반영
+            onComplete.run();
         }, onError);
     }
 
     public void updateCertificate (
         int index,
         @NonNull String secret,
-        @NonNull Consumer<Hashtable<String, Object>> completion)
+        @NonNull Consumer<Hashtable<String, Object>> onComplete)
     {
-        if(repo.getDataSource() == CloudRepository.DataSource.remote) {       // 클라우드 인증서 갱신
+        if(dataSource == DataSource.remote) {       // 클라우드 인증서 갱신
             ProtectedData encryptedPin = new SecureData(secret.getBytes());
             KSCertificateExt cert = certificates.get(index);
 
@@ -167,10 +165,10 @@ public class CertificateListFragmentViewModel extends ViewModel {
                 public void run() {
                     Consumer<Hashtable<String, Object>> innerCompletion = table -> {
                         encryptedPin.clear();
-                        completion.accept(table);
+                        onComplete.accept(table);
                     };
 
-                    repo.updateCertificateCloud(cert,
+                    cloudRepo.updateCertificateCloud(cert,
                         encryptedPin,
                         innerCompletion);
                 }
@@ -183,11 +181,11 @@ public class CertificateListFragmentViewModel extends ViewModel {
             new Thread() {
                 Consumer<Hashtable<String, Object>> innerCompletion = table -> {
                     encryptedPwd.clear();
-                    completion.accept(table);
+                    onComplete.accept(table);
                 };
 
                 public void run() {
-                    repo.updateCertificateLocal(cert,
+                    localRepo.updateCertificateLocal(cert,
                             encryptedPwd,
                             innerCompletion);
                 }
@@ -197,14 +195,40 @@ public class CertificateListFragmentViewModel extends ViewModel {
 
     public void unlockCertificate(
         int index,
-        @NonNull Runnable completion,
+        @NonNull Runnable onComplete,
         @NonNull Consumer<Exception> onError)
     {
-        val cert = certificates.get(index);
+        KSCertificateExt cert = certificates.get(index);
 
-        repo.unlockCertificate(cert, () -> {
-            certificates = repo.getLockedCertificates();
-            completion.run();
+        cloudRepo.unlockCertificate(cert, () -> {
+            certificates = cloudRepo.getLockedCertificates();
+            onComplete.run();
         }, onError);
+    }
+
+    public void registerBio(FragmentActivity activity,
+                            String id,
+                            ProtectedData pin,
+                            Bio.Callback bioCallback) {
+        Bio bio = new Bio(activity, cloudRepo.getCertMgr());
+        bio.setCallback(bioCallback);
+
+        if(bio.isBio(id))
+            bio.removeBioCloud(id);     // 기등록된 생체 인증이 있는 경우 삭제 후 진행
+
+        bio.addBioCloud(id, pin);
+    }
+
+    public String getCertIdFromSubjectDn(String dn) {
+        try {
+            int idx = cloudRepo.getCertMgr().getCertIdxBySubjectDN(dn);
+            if(idx >= 0)
+                return cloudRepo.getCertificates().get(idx).getId();
+            else
+                return null;
+
+        } catch(Exception e) {
+            return null;
+        }
     }
 }

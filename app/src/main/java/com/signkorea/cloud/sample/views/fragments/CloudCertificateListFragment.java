@@ -18,6 +18,7 @@ import com.signkorea.cloud.KSCertificateExt;
 import com.signkorea.cloud.sample.databinding.FragmentCloudCertificateListBinding;
 import com.signkorea.cloud.sample.databinding.ItemCertificateBinding;
 import com.signkorea.cloud.sample.enums.CertificateOperation;
+import com.signkorea.cloud.sample.enums.DataSource;
 import com.signkorea.cloud.sample.enums.SignMenuType;
 import com.signkorea.cloud.sample.models.CloudRepository;
 import com.signkorea.cloud.sample.utils.PasswordDialog;
@@ -32,8 +33,6 @@ import java.time.format.FormatStyle;
 import java.util.Hashtable;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
-
-import lombok.val;
 
 public class CloudCertificateListFragment extends ViewModelFragment<FragmentCloudCertificateListBinding, CertificateListFragmentViewModel> {
     private CertificateOperation operation = CertificateOperation.get;
@@ -51,6 +50,7 @@ public class CloudCertificateListFragment extends ViewModelFragment<FragmentClou
         @SuppressLint("NotifyDataSetChanged")
         Runnable completion = () -> {
             dismissLoading();
+            navigateToReturnView(false);
             adapter.notifyDataSetChanged();
 
             if (adapter.getItemCount() == 0) {
@@ -69,14 +69,16 @@ public class CloudCertificateListFragment extends ViewModelFragment<FragmentClou
 
         showLoading();
         if(operation == CertificateOperation.unlock) {
-            getViewModel().loadData(CloudRepository.DataSource.remote,
+            getViewModel().loadData(DataSource.remote,
                     KSCertificateExt::isLock,
-                    true,
                     completion,
                     onError);
         }
         else {
-            getViewModel().loadData(CloudRepository.DataSource.remote, null, completion, onError);
+            getViewModel().loadData(DataSource.remote,
+                    null,
+                    completion,
+                    onError);
         }
     }
 
@@ -93,9 +95,7 @@ public class CloudCertificateListFragment extends ViewModelFragment<FragmentClou
 
         // 등록 (클라우드 내 인증서가 없는 경우)
         if(operation == CertificateOperation.unlock)
-            getBinding().registCert.setOnClickListener((View.OnClickListener) v -> {
-                getNavController().popBackStack();
-            });
+            getBinding().registCert.setOnClickListener(v -> getNavController().popBackStack());
         else {
             direction = CloudCertificateListFragmentDirections
                     .actionCloudCertificateListFragmentToLocalCertificateListFragment()
@@ -108,7 +108,10 @@ public class CloudCertificateListFragment extends ViewModelFragment<FragmentClou
     @Override
     public void onResume() {
         super.onResume();
-        refresh();
+        // MO에서 복귀한 경우 중복 호출 방지
+        // MO에서 복귀한 경우가 아닐 때만 화면/데이터 갱신
+        if(getMoReturnDestinationViewId() < 0)
+            refresh();
     }
 
     private void onItemClick(int position) {
@@ -161,13 +164,14 @@ public class CloudCertificateListFragment extends ViewModelFragment<FragmentClou
     private void exportCertificate(int position) {
         BiConsumer<String, String> onPasswordAcquired = (pin, secret) -> {
             BiConsumer<ExportedCertificate, Boolean> completion = (certificate, fromCache) -> {
-                val title = operation.getLabel() + " 성공 ";
-                val source = fromCache ? "[Cached]" : "[Downloaded]";
+                String title = operation.getLabel() + " 성공 ";
+                String source = fromCache ? "[Cache]" : "[Server]";
 
                 new AlertDialog.Builder(requireContext())
                         .setTitle(title + source)
                         .setMessage(certificate.getId())
-                        .setPositiveButton(android.R.string.ok, (dialog, which) -> {})
+                        .setPositiveButton(android.R.string.ok, null)
+                        .setOnDismissListener(d -> navigateToReturnView(false))
                         .show();
             };
 
@@ -193,7 +197,8 @@ public class CloudCertificateListFragment extends ViewModelFragment<FragmentClou
         BiConsumer<String, String> onPinAcquired = (oldPin, newPin) -> {
             Runnable completion = () -> new AlertDialog.Builder(requireContext())
                     .setTitle(operation.getLabel() + " 성공")
-                    .setPositiveButton(android.R.string.ok, (dialog, which) -> {})
+                    .setPositiveButton(android.R.string.ok, null)
+                    .setOnDismissListener(d -> navigateToReturnView(false))
                     .show();
 
             getViewModel().changeCertificatePin(position, oldPin, newPin, completion, this::alertException);
@@ -217,29 +222,24 @@ public class CloudCertificateListFragment extends ViewModelFragment<FragmentClou
     private void deleteCertificate(int position) {
         Runnable completion = () -> {
             Toast.makeText(requireContext(), "인증서를 삭제하였습니다.", Toast.LENGTH_SHORT).show();
+            navigateToReturnView(false);
             adapter.notifyItemRemoved(position);
         };
 
-        Consumer<Exception> onError = exception -> new AlertDialog.Builder(requireContext())
-                .setTitle(operation.getLabel() + " 실패")
-                .setMessage(exception.toString())
-                .setPositiveButton(android.R.string.ok, (dialog, which) -> {})
-                .show();
-
-        val cert = getViewModel().getCertificates().get(position);
-
+        KSCertificateExt cert = getViewModel().getCertificates().get(position);
         new AlertDialog.Builder(requireActivity())
                 .setMessage(String.format("'%s' 인증서를 삭제합니다.", cert.getSubject()))
                 .setPositiveButton(android.R.string.ok, (dialog, which) ->
-                        getViewModel().deleteCertificate(position, completion, onError)
+                        getViewModel().deleteCertificate(position, completion, this::alertException)
                 )
-                .setNegativeButton(android.R.string.cancel, (dialog, which) -> {})
+                .setNegativeButton(android.R.string.cancel, null)
                 .show();
     }
 
     private void updateCertificate(int position) {
         Consumer<Hashtable<String, Object>> completion = (ret) -> {
             dismissLoading();
+            navigateToReturnView(false);
 
             code = (String) ret.get("CODE");
 
@@ -269,7 +269,7 @@ public class CloudCertificateListFragment extends ViewModelFragment<FragmentClou
                                 adapter.notifyDataSetChanged();
                             };
 
-                            getViewModel().loadData(CloudRepository.DataSource.remote, null, true, onLoadingComplete, onLoadingError);
+                            getViewModel().loadData(DataSource.remote, null, onLoadingComplete, onLoadingError);
                         }
                     })
                     .show());
@@ -291,9 +291,9 @@ public class CloudCertificateListFragment extends ViewModelFragment<FragmentClou
     private void unlockCertificate(int position) {
         Runnable completion = () -> new AlertDialog.Builder(requireContext())
                 .setMessage("인증서 잠금을 해제 하였습니다.")
-                .setPositiveButton(android.R.string.ok, ((dialog, which) -> {
-                    adapter.notifyItemRemoved(position);
-                }))
+                .setPositiveButton(android.R.string.ok,
+                        (dialog, which) -> adapter.notifyItemRemoved(position))
+                .setOnDismissListener(d -> navigateToReturnView(false))
                 .show();
 
         getViewModel().unlockCertificate(position, completion, this::alertException);

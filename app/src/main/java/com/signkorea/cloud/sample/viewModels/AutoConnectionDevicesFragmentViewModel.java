@@ -10,12 +10,8 @@ import java.util.List;
 import java.util.Objects;
 import java.util.function.Consumer;
 
-import lombok.Getter;
-
 public class AutoConnectionDevicesFragmentViewModel extends ViewModel {
     private CloudRepository repo = CloudRepository.getInstance();
-
-    @Getter
     private List<AutoConnectDevice> devices = null;
 
     @SuppressWarnings("UnusedReturnValue")
@@ -49,4 +45,8 @@ public class AutoConnectionDevicesFragmentViewModel extends ViewModel {
     public boolean isCurrentDevice(int index) {
         return Objects.equals(devices.get(index).getDeviceId(), repo.getCertMgr().client.getCurrentDeviceId());
     }
+
+    // region Getter
+    public List<AutoConnectDevice> getDevices() { return devices; }
+    // endregion
 }

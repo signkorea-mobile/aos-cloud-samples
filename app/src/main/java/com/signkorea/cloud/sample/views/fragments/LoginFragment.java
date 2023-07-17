@@ -28,7 +28,8 @@ import com.signkorea.securedata.SecureData;
 import java.util.function.Consumer;
 
 public class LoginFragment extends DataBindingFragment<FragmentLoginBinding> implements Bio.Callback{
-    private CloudRepository repo = CloudRepository.getInstance();
+    private CloudRepository cloudRepo = CloudRepository.getInstance();
+
     @Nullable
     private KSCertificateExt selectedCert = null;
 
@@ -37,8 +38,40 @@ public class LoginFragment extends DataBindingFragment<FragmentLoginBinding> imp
 
     private Bio bio = null;
 
+    @Override
+    public void onCreate(@Nullable Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+    }
+
+    @Override
+    public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
+        super.onViewCreated(view, savedInstanceState);
+
+        NavDirections directions;
+        // 인증서 선택
+        directions = LoginFragmentDirections.actionLoginFragmentToCloudCertificateListFragment()
+                .setOperation(CertificateOperation.get)
+                .setSignMenuType(LoginFragmentArgs.fromBundle(getArguments()).getSignMenuType());
+        getBinding().certButton.setOnClickListener(
+                Navigation.createNavigateOnClickListener(directions));
+
+        getBinding().koscomCmsSign.setOnClickListener(view1 -> sign(Bio.OPERATION.KOSCOMCMSSIGN));
+        getBinding().koscomBriefSign.setOnClickListener(view1 -> sign(Bio.OPERATION.KOSCOMBRIEFSIGN));
+        getBinding().getRandom.setOnClickListener(view1 -> sign(Bio.OPERATION.GETRANDOM));
+        getBinding().deleteBio.setOnClickListener(view1 -> removeBio());
+
+        bio = new Bio(requireActivity(), cloudRepo.getCertMgr());
+        bio.setCallback(this);
+
+        // MO에서 복귀한 경우 중복 호출 방지
+        // MO에서 복귀한 경우가 아닐 때만 화면/데이터 갱신
+        if(getMoReturnDestinationViewId() < 0)
+            refresh();
+    }
+
     private void refresh() {
         Runnable refreshUI = () -> {
+            navigateToReturnView(false);        // MO 처리 후 복귀한 경우 MO완료 후 대상 화면으로 이동
             dismissLoading();
 
             menuType = LoginFragmentArgs.fromBundle(getArguments()).getSignMenuType();
@@ -62,61 +95,42 @@ public class LoginFragment extends DataBindingFragment<FragmentLoginBinding> imp
             if(selectedCert == null) {
                 getBinding().authTypeBtnPin.setVisibility(View.INVISIBLE);
                 getBinding().deleteBio.setVisibility(View.INVISIBLE);
-            }
-            else {
+            } else {
                 getBinding().selectdnText.setText(selectedCert.getSubject());
                 getBinding().authTypeBtnPin.setVisibility(View.VISIBLE);
-                if(selectedCert.isCloud() && bio.isBio(selectedCert.getId())){
+                if(selectedCert.isCloud() && bio.isBio(selectedCert.getId())) {
                     getBinding().deleteBio.setVisibility(View.VISIBLE);
+                    getBinding().authTypeBtnFinger.setVisibility(View.VISIBLE);
                 }
             }
         };
 
-        if(repo.getDataSource() == CloudRepository.DataSource.remote) {
-            selectedCert = repo.getSelectedCert();
+        Consumer<Exception> onError = e -> {
+            menuType = LoginFragmentArgs.fromBundle(getArguments()).getSignMenuType();
+            alertException(e, menuType.getLabel(), true);
+        };
+
+        selectedCert = cloudRepo.getSelectedCert();
+
+        showLoading();
+        if(selectedCert == null) {
             refreshUI.run();
         }
         else {
-            Consumer<Exception> onError = e -> {
-                menuType = LoginFragmentArgs.fromBundle(getArguments()).getSignMenuType();
-                alertException(e, menuType.getLabel(), true);
-            };
-
-            showLoading();
-            repo.loadCertificates(CloudRepository.DataSource.remote, () -> {
-                selectedCert = repo.getSelectedCert();
-
+            cloudRepo.loadCertificates(() -> {
+                selectedCert = cloudRepo.getSelectedCert();
                 refreshUI.run();
             }, onError);
         }
     }
 
-    @Override
-    public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
-        super.onViewCreated(view, savedInstanceState);
-
-        NavDirections directions;
-        // 인증서 선택
-        directions = LoginFragmentDirections.actionLoginFragmentToCloudCertificateListFragment()
-                .setOperation(CertificateOperation.get)
-                .setSignMenuType(LoginFragmentArgs.fromBundle(getArguments()).getSignMenuType());
-        getBinding().certButton.setOnClickListener(
-                Navigation.createNavigateOnClickListener(directions));
-
-        getBinding().koscomCmsSign.setOnClickListener(view1 -> sign(Bio.OPERATION.KOSCOMCMSSIGN));
-        getBinding().koscomBriefSign.setOnClickListener(view1 -> sign(Bio.OPERATION.KOSCOMBRIEFSIGN));
-        getBinding().getRandom.setOnClickListener(view1 -> sign(Bio.OPERATION.GETRANDOM));
-        getBinding().deleteBio.setOnClickListener(view1 -> removeBio());
-
-        bio = new Bio(requireActivity(), repo.getCertMgr());
-        bio.setCallback(this);
-
-        refresh();
-    }
-
     private void sign(Bio.OPERATION type) {
         if(selectedCert == null) {
             Toast.makeText(requireContext(), "인증서 선택 후 진행해주세요.", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        else if(selectedCert.isLock()) {
+            Toast.makeText(requireContext(), "잠긴 인증서입니다.\n잠금 해제 후 이용해주세요.", Toast.LENGTH_SHORT).show();
             return;
         }
 
@@ -205,15 +219,22 @@ public class LoginFragment extends DataBindingFragment<FragmentLoginBinding> imp
         showLoading();
         switch (type) {
             case KOSCOMCMSSIGN:
-                repo.getCertMgr().koscomCMSSign(selectedCert.getId(), plain, encryptedPin, completion, onError);
+                cloudRepo.getCertMgr().koscomCMSSign(selectedCert.getId(), plain, encryptedPin, completion, onError);
                 break;
 
             case KOSCOMBRIEFSIGN:
-                repo.getCertMgr().koscomBriefSign(selectedCert.getId(), plain, encryptedPin, completion, onError);
+                try {
+                    // 로그인 후 세션이 유효한 동안은 캐시를 통해 축약서명을 생성합니다.
+                    byte[] sign = cloudRepo.getCertMgr().koscomBriefSignCache(selectedCert.getId(), plain, encryptedPin);
+                    completion.accept(sign);
+                }
+                catch(Exception e) {
+                    onError.accept(e);
+                }
                 break;
 
             case GETRANDOM:
-                repo.getCertMgr().getRandom(selectedCert.getId(), encryptedPin, getRandomCompletion, onError);
+                cloudRepo.getCertMgr().getRandom(selectedCert.getId(), encryptedPin, getRandomCompletion, onError);
                 break;
 
             default:
@@ -274,6 +295,7 @@ public class LoginFragment extends DataBindingFragment<FragmentLoginBinding> imp
         String id = selectedCert.getCertInfo().getId();
         if (bio.isBio(id)) {
             bio.removeBioCloud(id);
+            getBinding().authTypeBtnFinger.setVisibility(View.INVISIBLE);
             message = "등록된 생체 인증을 삭제하였습니다.";
         } else {
             message = "등록된 생체 인증이 없습니다.";

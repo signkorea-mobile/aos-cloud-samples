@@ -5,11 +5,13 @@ import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Intent;
 import android.os.Bundle;
+import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Toast;
 
+import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.recyclerview.widget.RecyclerView;
@@ -21,7 +23,7 @@ import com.signkorea.cloud.KSCertificateExt;
 import com.signkorea.cloud.sample.databinding.FragmentLocalCertificateListBinding;
 import com.signkorea.cloud.sample.databinding.ItemCertificateBinding;
 import com.signkorea.cloud.sample.enums.CertificateOperation;
-import com.signkorea.cloud.sample.models.CloudRepository;
+import com.signkorea.cloud.sample.enums.DataSource;
 import com.signkorea.cloud.sample.utils.PasswordDialog;
 import com.signkorea.cloud.sample.viewModels.CertificateListFragmentViewModel;
 import com.signkorea.cloud.sample.viewModels.InterFragmentStore;
@@ -38,23 +40,15 @@ import java.util.Hashtable;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
-import lombok.val;
-
 public class LocalCertificateListFragment
     extends ViewModelFragment<FragmentLocalCertificateListBinding, CertificateListFragmentViewModel> implements Bio.Callback
 {
-    private CloudRepository repo = CloudRepository.getInstance();
-
     private CertificateOperation operation = CertificateOperation.get;
 
     private final Adapter adapter = new Adapter();
 
     private String code = null;
     private String message = null;
-
-    private Bio bio = null;
-
-    private String dn = null;
 
     private void refresh() {
         Consumer<Exception> onError = exception -> alertException(exception, operation.getLabel(), true);
@@ -89,8 +83,12 @@ public class LocalCertificateListFragment
             }
         };
 
-        showLoading();
-        getViewModel().loadData(CloudRepository.DataSource.local, null, (operation == CertificateOperation.updateLocal), completion, onError);
+        // MO에서 복귀한 경우 중복 호출 방지
+        // MO에서 복귀한 경우가 아닐 때만 화면/데이터 갱신
+        if(getMoReturnDestinationViewId() < 0) {
+            showLoading();
+            getViewModel().loadData(DataSource.local, null, completion, onError);
+        }
     }
 
     @Override
@@ -100,6 +98,15 @@ public class LocalCertificateListFragment
         operation = LocalCertificateListFragmentArgs.fromBundle(getArguments()).getOperation();
 
         getBinding().recyclerView.setAdapter(adapter);
+        
+        requireActivity().getOnBackPressedDispatcher().addCallback(getViewLifecycleOwner(), new OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                if(operation == CertificateOperation.register) {
+
+                }
+            }
+        });
     }
 
     @Override
@@ -127,41 +134,35 @@ public class LocalCertificateListFragment
     private void registerCertificate(int position) {
         Consumer<KSCertificateExt> completion = cert -> {
             dismissLoading();
-            dn = cert.getSubject();
+            final String dn = cert.getSubject();
 
             new AlertDialog.Builder(requireContext())
                     .setTitle(operation.getLabel() + " 성공")
-                    .setMessage(cert.getSubjectC() + " 인증서가 등록 되었습니다" + "\n생체 인증도 함께 사용 하시겠습니까?")
+                    .setMessage("인증서가 클라우드에 저장 되었습니다." + "\n생체 인증도 함께 사용 하시겠습니까?")
                     .setPositiveButton(android.R.string.ok, (dialog, which) -> {
                         try {
                             Toast.makeText(requireContext(), "생체 등록을 진행합니다.", Toast.LENGTH_SHORT).show();
-                            bio = new Bio(requireActivity(), repo.getCertMgr());
-                            bio.setCallback(this);
 
-                            // 직전 등록한 인증서를 포함한 목록을 로딩
-                            repo.loadCertificates(CloudRepository.DataSource.remote,
-                                    () -> {
-                                        KSCertificateExt registeredCert = repo.getCertificates().stream()
-                                                .filter(c -> c.getSubject().equalsIgnoreCase(dn))
-                                                .findFirst()
-                                                .orElse(null);
-                                        if(registeredCert != null) {
-                                            String id = registeredCert.getId();
-                                            if(bio.isBio(id))
-                                                bio.removeBioCloud(id);
-
-                                            PasswordDialog.show(requireContext(),
-                                                    operation.getLabel(),
-                                                    true,
-                                                    false,
-                                                    "",
-                                                    pin -> bio.addBioCloud(id, new SecureData(pin.getBytes())),
-                                                    this::dismissLoading);
-                                        }
+                            PasswordDialog.show(requireContext(),
+                                    operation.getLabel() + " - 생체 등록",
+                                    true,
+                                    false,
+                                    "",
+                                    pin -> {
+                                        String certId = getViewModel().getCertIdFromSubjectDn(dn);
+                                        if(!TextUtils.isEmpty(certId))
+                                            getViewModel().registerBio(
+                                                    requireActivity(),
+                                                    certId,
+                                                    new SecureData(pin.getBytes()),
+                                                    this);
                                         else {
-                                            Toast.makeText(requireContext(), "생체 등록 대상 인증서를 찾지 못했습니다.", Toast.LENGTH_SHORT).show();
+                                            Toast.makeText(requireContext(),
+                                                    "클라우드에서 인증서를 찾을 수 없습니다. 인증서를 클라우드에 다시 보관해 주세요.",
+                                                    Toast.LENGTH_SHORT).show();
                                         }
-                                    }, e -> alertException(e, "인증서 목록 로딩 실패", true));
+                                    },
+                                    this::dismissLoading);
                         }
                         catch (Exception e)
                         {
@@ -190,7 +191,7 @@ public class LocalCertificateListFragment
         };
 
         BiConsumer<String, String> onPasswordAcquired = (password, pin) -> {
-            val cert = (KSCertificateExt)getViewModel().getCertificates().get(position);
+            KSCertificateExt cert = getViewModel().getCertificates().get(position);
 
             showLoading();
             getViewModel().registerCertificate(
@@ -198,8 +199,8 @@ public class LocalCertificateListFragment
                 cert.getKey(),
                 cert.getKmCertificate(),
                 cert.getKmKey(),
-                    password,
-                    pin,
+                password,
+                pin,
                 () -> completion.accept(cert),
                 onError);
         };
@@ -247,7 +248,12 @@ public class LocalCertificateListFragment
                             dismissLoading();
                             adapter.notifyDataSetChanged();
                         };
-                        getViewModel().loadData(CloudRepository.DataSource.local, null, true, onLoadingComplete, onLoadingError);
+
+                        getViewModel().loadData(
+                                DataSource.local,
+                                null,
+                                onLoadingComplete,
+                                onLoadingError);
                     }
                 })
                 .show());
@@ -351,8 +357,7 @@ public class LocalCertificateListFragment
         new AlertDialog.Builder(requireContext())
                 .setTitle("생체 인증 실패")
                 .setMessage(message)
-                .setPositiveButton(android.R.string.ok, (dialog, which) -> {
-                })
+                .setPositiveButton(android.R.string.ok, null)
                 .show();
     }
 
@@ -361,8 +366,7 @@ public class LocalCertificateListFragment
         new AlertDialog.Builder(requireContext())
                 .setTitle("생체 인증 실패")
                 .setMessage("onAuthenticationFailed")
-                .setPositiveButton(android.R.string.ok, (dialog, which) -> {
-                })
+                .setPositiveButton(android.R.string.ok, null)
                 .show();
     }
 
@@ -371,8 +375,7 @@ public class LocalCertificateListFragment
         if (operation == Bio.OPERATION.REGIST) {
             new AlertDialog.Builder(requireContext())
                     .setTitle("생체 인증 등록 성공")
-                    .setPositiveButton(android.R.string.ok, (dialog, which) -> {
-                    })
+                    .setPositiveButton(android.R.string.ok, null)
                     .show();
         } else {
             // 로컬 인증서 화면에서는 등록 처리만 구현되어 있습니다.

@@ -2,6 +2,8 @@ package com.signkorea.cloud.sample.views.fragments;
 
 import android.annotation.SuppressLint;
 import android.app.AlertDialog;
+import android.content.Context;
+import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.os.Handler;
@@ -16,30 +18,28 @@ import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
-import com.signkorea.cloud.sample.views.base.DataBindingFragment;
 import com.signkorea.cloud.sample.R;
 import com.signkorea.cloud.sample.databinding.FragmentConditionsOfUseBinding;
-import com.signkorea.cloud.sample.utils.OnceRunnable;
 import com.signkorea.cloud.sample.viewModels.InterFragmentStore;
+import com.signkorea.cloud.sample.views.base.DataBindingFragment;
 import com.yettiesoft.cloud.AcknowledgeConditionsOfUseReason;
 
 import java.util.function.BiConsumer;
 
-import lombok.val;
-
 public class ConditionsOfUseFragment extends DataBindingFragment<FragmentConditionsOfUseBinding> {
     private BiConsumer<String, String> onAgree;
+    private Runnable onCancel;
     private AcknowledgeConditionsOfUseReason reason;
 
-    private final OnceRunnable loadPage = new OnceRunnable(() -> getBinding().webView.loadUrl(getUrl()));
+    private final Runnable loadPage = () -> getBinding().webView.loadUrl(getUrl());
 
     @Nullable
     private String getUrl() {
-        val ctx = requireContext();
-        val appId = ctx.getPackageName();
+        Context ctx = requireContext();
+        String appId = ctx.getPackageName();
 
         try {
-            val ai = ctx.getPackageManager().getApplicationInfo(appId, PackageManager.GET_META_DATA);
+            ApplicationInfo ai = ctx.getPackageManager().getApplicationInfo(appId, PackageManager.GET_META_DATA);
             return ai.metaData.getString("Cloud NPKI Conditions of Use URL");
         } catch (PackageManager.NameNotFoundException e) {
             throw new RuntimeException(e);
@@ -95,15 +95,19 @@ public class ConditionsOfUseFragment extends DataBindingFragment<FragmentConditi
 
         onAgree = getInterFragmentStore().remove(
             R.id.conditionsOfUseFragment,
-            InterFragmentStore.MO_ACTION_CONFIRM);
+            InterFragmentStore.MO_API_EXECUTOR);
+
+        onCancel = getInterFragmentStore().remove(
+                R.id.conditionsOfUseFragment,
+                InterFragmentStore.MO_API_CANCEL);
 
         reason = ConditionsOfUseFragmentArgs.fromBundle(getArguments()).getReason();
+        loadPage.run();
     }
 
     @Override
     public void onResume() {
         super.onResume();
-        loadPage.run();
     }
 
     class Bridge {
@@ -115,29 +119,11 @@ public class ConditionsOfUseFragment extends DataBindingFragment<FragmentConditi
         @SuppressWarnings("ConstantConditions")
         @JavascriptInterface
         public void cancel() {
-            new Handler(Looper.getMainLooper()).post(() -> {
-                if (reason == AcknowledgeConditionsOfUseReason.updated) {
-                    new AlertDialog.Builder(requireContext())
-                        .setTitle("약관 개정 안내")
-                        .setMessage("개정된 약관에 동의하신 후 서비스를 이용하실 수 있습니다.")
-                        .setPositiveButton(android.R.string.ok, null)
-                        .setNegativeButton(android.R.string.cancel, (dialog, which) -> ConditionsOfUseFragment.this.cancel())
-                        .show();
-                } else {
-                    cancel();
-                }
-            });
+            new Handler(Looper.getMainLooper()).post(ConditionsOfUseFragment.this::cancel);
         }
     }
 
     private void cancel() {
-        getInterFragmentStore().<Runnable>remove(R.id.conditionsOfUseFragment, InterFragmentStore.MO_API_CANCEL).run();
-        getInterFragmentStore().<Runnable>remove(InterFragmentStore.MO_ACTION_CANCEL).run();
-    }
-
-    @Override
-    public void onDestroy() {
-        super.onDestroy();
-        getInterFragmentStore().remove(R.id.conditionsOfUseFragment, InterFragmentStore.MO_API_CANCEL);
+        onCancel.run();
     }
 }

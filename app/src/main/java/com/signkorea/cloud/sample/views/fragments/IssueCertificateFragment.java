@@ -16,7 +16,6 @@ import com.signkorea.cloud.sample.enums.CertificateOperation;
 import com.signkorea.cloud.sample.utils.PasswordDialog;
 import com.signkorea.cloud.sample.viewModels.IssueCertificateFragmentViewModel;
 import com.signkorea.cloud.sample.views.base.ViewModelFragment;
-import com.yettiesoft.cloud.InvalidPinException;
 
 import java.util.Hashtable;
 import java.util.function.Consumer;
@@ -101,7 +100,7 @@ public class IssueCertificateFragment extends ViewModelFragment<FragmentIssueCer
         boolean ret = getViewModel().savePhone();
         new AlertDialog.Builder(requireContext())
             .setTitle(ret ? "휴대폰 저장 성공": "휴대폰 저장 실패")
-            .setPositiveButton(android.R.string.ok, (dialog, which) -> {})
+            .setPositiveButton(android.R.string.ok, null)
             .show();
 
     }
@@ -112,29 +111,13 @@ public class IssueCertificateFragment extends ViewModelFragment<FragmentIssueCer
             new AlertDialog.Builder(requireContext())
                     .setTitle("Cloud 저장 성공")
                     .setPositiveButton(android.R.string.ok, null)
+                    .setOnCancelListener(d -> navigateToReturnView(false))
                     .show();
         };
 
         Consumer<Exception> onError = (e) -> {
             dismissLoading();
-            final String errorMessage;
-
-            if (e instanceof InvalidPinException) {
-                switch (((InvalidPinException) e).getCode()) {
-                    case 10001: errorMessage = "PIN 길이 제한 (6자리 가능)"; break;
-                    case 10002: errorMessage = "같은 숫자가 3개 이상 발생"; break;
-                    case 10003: errorMessage = "연속된 숫자가 3개 이상 발생"; break;
-                    default: errorMessage = "PIN 검증 오류"; break;
-                }
-            } else {
-                errorMessage = e.toString();
-            }
-
-            new AlertDialog.Builder(requireContext())
-                .setTitle("Cloud 저장 실패")
-                .setMessage(errorMessage)
-                .setPositiveButton(android.R.string.ok, null)
-                .show();
+            alertException(e, "Cloud 저장 실패");
         };
 
         PasswordDialog.show(requireContext(),
@@ -143,9 +126,9 @@ public class IssueCertificateFragment extends ViewModelFragment<FragmentIssueCer
                 false,
                 "",
                 pin -> {
-                showLoading();
-                getViewModel().saveCloud(pin, completion, onError);
-            },
+                    showLoading();
+                    getViewModel().saveCloud(pin, completion, onError);
+                },
                 this::dismissLoading);
     }
 

@@ -12,7 +12,6 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.signkorea.cloud.sample.databinding.FragmentAutoConnectionDevicesBinding;
 import com.signkorea.cloud.sample.databinding.ItemAutoConnectDeviceBinding;
-import com.signkorea.cloud.sample.utils.OnceRunnable;
 import com.signkorea.cloud.sample.viewModels.AutoConnectionDevicesFragmentViewModel;
 import com.signkorea.cloud.sample.views.base.ViewModelFragment;
 import com.yettiesoft.cloud.models.AutoConnectDevice;
@@ -25,21 +24,22 @@ import java.util.Date;
 import java.util.Optional;
 import java.util.function.Consumer;
 
-import lombok.var;
-
 public class AutoConnectionDevicesFragment extends
     ViewModelFragment<FragmentAutoConnectionDevicesBinding, AutoConnectionDevicesFragmentViewModel>
 {
     private final Adapter adapter = new Adapter();
 
-    private final OnceRunnable loadData = new OnceRunnable(() -> {
+    private Runnable loadData = () -> {
         showLoading();
         getViewModel().loadData(() -> {
                     dismissLoading();
+                    navigateToReturnView(false);
                     adapter.notifyDataSetChanged();
                 },
-                exception -> alertException(exception, true));
-    });
+                exception -> {
+                    alertException(exception, true);
+                });
+    };
 
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
@@ -51,8 +51,10 @@ public class AutoConnectionDevicesFragment extends
     @Override
     public void onResume() {
         super.onResume();
-
-        loadData.run();
+        // MO에서 복귀한 경우 중복 호출 방지
+        // MO에서 복귀한 경우가 아닐 때만 화면/데이터 갱신
+        if(getMoReturnDestinationViewId() < 0)
+            loadData.run();
     }
 
     private void onItemClick(int position) {
@@ -79,9 +81,12 @@ public class AutoConnectionDevicesFragment extends
             } else {
                 adapter.notifyItemRemoved(position);
             }
+            navigateToReturnView(false);
         };
 
-        Consumer<Exception> onError = exception -> alertException(exception, "자동 연결 해제");
+        Consumer<Exception> onError = exception -> {
+            alertException(exception, "자동 연결 해제");
+        };
         showLoading();
         getViewModel().removeItem(position, onItemDeleted, onError);
     }
@@ -136,7 +141,7 @@ public class AutoConnectionDevicesFragment extends
         @NonNull
         @Override
         public ItemView onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-            var itemView = ItemView.create(parent);
+            ItemView itemView = ItemView.create(parent);
 
             itemView.binding.getRoot().setOnClickListener(view -> {
                 int pos = itemView.getAdapterPosition();

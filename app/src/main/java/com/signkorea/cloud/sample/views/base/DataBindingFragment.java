@@ -3,6 +3,7 @@ package com.signkorea.cloud.sample.views.base;
 import android.annotation.SuppressLint;
 import android.app.AlertDialog;
 import android.os.Bundle;
+import android.util.Log;
 import android.util.Pair;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -17,6 +18,7 @@ import androidx.navigation.NavController;
 
 import com.lumensoft.ks.KSException;
 import com.signkorea.cloud.sample.models.CloudRepository;
+import com.signkorea.cloud.sample.models.LocalRepository;
 import com.signkorea.cloud.sample.viewModels.InterFragmentStore;
 import com.signkorea.cloud.sample.views.MainActivity;
 import com.yettiesoft.cloud.CancelException;
@@ -31,12 +33,10 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.ParameterizedType;
 import java.net.SocketTimeoutException;
-import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Optional;
 import java.util.function.Function;
-
-import lombok.val;
 
 public class DataBindingFragment<BindingT extends ViewDataBinding> extends Fragment {
     protected final String TAG = getClass().getSimpleName();
@@ -82,16 +82,46 @@ public class DataBindingFragment<BindingT extends ViewDataBinding> extends Fragm
         @Nullable ViewGroup container,
         @Nullable Bundle savedInstanceState)
     {
+        Log.d(TAG, "onCreateView");
         binding = inflate(inflater, container);
         CloudRepository.getInstance().setViewContext(requireContext());
+        LocalRepository.getInstance().setViewContext(requireContext());
 
         return binding.getRoot();
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        Log.d(TAG, "onResume");
+    }
+
+    @Override
+    public void onPause() {
+        super.onPause();
+        Log.d(TAG, "onPause");
     }
 
     private int myDestinationId;
 
     protected NavController getNavController() {
         return ((MainActivity)requireActivity()).getNavController();
+    }
+
+    protected int getMoReturnDestinationViewId() {
+        return Optional.ofNullable((Integer)getInterFragmentStore().get(InterFragmentStore.MO_RETURN_VIEW_ID))
+                .orElse(-1);
+    }
+
+    protected int removeMoReturnDestinationViewId() {
+        return Optional.ofNullable((Integer)getInterFragmentStore().remove(InterFragmentStore.MO_RETURN_VIEW_ID))
+                .orElse(-1);
+    }
+
+    protected void navigateToReturnView(boolean popUpInclude) {
+        int returnViewId = removeMoReturnDestinationViewId();
+        if (returnViewId != -1)
+            getNavController().popBackStack(returnViewId, popUpInclude);
     }
 
     @Override
@@ -106,20 +136,19 @@ public class DataBindingFragment<BindingT extends ViewDataBinding> extends Fragm
     protected void alertException(@NonNull Exception exception, @Nullable String title, boolean popBackStack, @Nullable Runnable completion) {
         dismissLoading();
         Runnable proceed = () -> {
+            removeMoReturnDestinationViewId();
             getNavController().popBackStack(myDestinationId, popBackStack);
-
-            getInterFragmentStore().remove(InterFragmentStore.MO_ACTION_CANCEL);
 
             if (completion != null) {
                 completion.run();
             }
         };
 
-        val message = exceptionMapper.apply(exception);
-        val builder = new AlertDialog.Builder(requireContext())
+        String message = exceptionMapper.apply(exception);
+        AlertDialog.Builder builder = new AlertDialog.Builder(requireContext())
                 .setMessage(message)
-                .setPositiveButton(android.R.string.ok, (dialog, which) -> proceed.run())
-                .setOnCancelListener(dialog -> proceed.run());
+                .setPositiveButton(android.R.string.ok, null)
+                .setOnDismissListener(dialog -> proceed.run());
 
         if (title != null)
             builder.setTitle(title);
@@ -161,8 +190,7 @@ public class DataBindingFragment<BindingT extends ViewDataBinding> extends Fragm
         @NonNull
         public R apply(@NonNull Exception exception) {
             Class<?> cls = exception.getClass();
-
-            for (val pair: chain) {
+            for(Pair<Class<?>, Function<Object, R>> pair: chain) {
                 if (pair.first.isAssignableFrom(cls)) {
                     return pair.second.apply(exception);
                 }
@@ -175,9 +203,7 @@ public class DataBindingFragment<BindingT extends ViewDataBinding> extends Fragm
     @SuppressLint("DefaultLocale")
     private static final ExceptionMapper<String> exceptionMapper = new ExceptionMapper<String>()
         .is(IncorrectPasscodeException.class, exception -> {
-            val failCount = Arrays.stream(exception.getPinFailCounts())
-                .findFirst()
-//              .map(PinFailCount::getFailed)
+            String failCount = Optional.of(exception.getPinFailCount())
                 .map(c -> {
                     if (c.isLock()) {
                         return "인증서가 잠겼습니다.";

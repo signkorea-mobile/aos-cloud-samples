@@ -18,12 +18,11 @@ import com.yettiesoft.cloud.PhoneNumberProofTransaction;
 import java.util.Timer;
 import java.util.TimerTask;
 
-import lombok.val;
-
 public class PhoneNumberAuthenticationV1Fragment extends DataBindingFragment<FragmentPhoneNumberAuthenticationV1Binding> {
     private PhoneNumberProofTransaction transaction;
+    private Runnable onCancel;
+
     private Timer timer = null;
-    private Runnable confirmAction = null;
 
     @SuppressWarnings("ConstantConditions")
     @Override
@@ -44,15 +43,14 @@ public class PhoneNumberAuthenticationV1Fragment extends DataBindingFragment<Fra
 
         transaction = getInterFragmentStore().remove(
             R.id.phoneNumberAuthenticationV1Fragment,
-            InterFragmentStore.MO_API_TRANSACTION);
+            InterFragmentStore.MO_API_EXECUTOR);
 
-        confirmAction = getInterFragmentStore().remove(
-            R.id.phoneNumberAuthenticationV1Fragment,
-            InterFragmentStore.MO_ACTION_CONFIRM);
+        onCancel = getInterFragmentStore().remove(
+                R.id.phoneNumberAuthenticationV1Fragment,
+                InterFragmentStore.MO_API_CANCEL);
 
         // 확인
         getBinding().confirmButton.setEnabled(false);
-
         // 취소
         getBinding().cancelButton.setOnClickListener(button -> cancel());
 
@@ -71,19 +69,25 @@ public class PhoneNumberAuthenticationV1Fragment extends DataBindingFragment<Fra
         unschedule();
     }
 
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        getInterFragmentStore().remove(R.id.phoneNumberAuthenticationV1Fragment, InterFragmentStore.MO_API_CANCEL);
+    }
+
     @SuppressLint({"SetTextI18n", "DefaultLocale"})
     private void updateTime(PhoneNumberProofTransaction.Status status) {
         switch (status) {
             case AuthCodeDoesNotMatch:
             case InProgress: {
-                val totSec = Math.max(transaction.getTimeout().getTime() - System.currentTimeMillis(), 0) / 1000;
-                val str = String.format("%02d:%02d", totSec / 60, totSec % 60);
+                long totSec = Math.max(transaction.getTimeout().getTime() - System.currentTimeMillis(), 0) / 1000;
+                String str = String.format("%02d:%02d", totSec / 60, totSec % 60);
                 getBinding().confirmButton.setText(str);
             } break;
 
             case Complete: {
                 // MO인증이 완료된 경우 후속 진행 처리
-                confirmAction.run();
+                confirm();
             } break;
 
             case Canceled:
@@ -103,7 +107,7 @@ public class PhoneNumberAuthenticationV1Fragment extends DataBindingFragment<Fra
             case AuthCodeDoesNotMatch: {
                 requireActivity().runOnUiThread(() -> {
                     @SuppressLint("DefaultLocale")
-                    val message = String.format(
+                    String message = String.format(
                             "인증코드가 일치하지 않습니다. 정확한 인증코드를 전송해 주시기 바랍니다.\n[%d/5]",
                             mismatchCount);
 
@@ -143,22 +147,20 @@ public class PhoneNumberAuthenticationV1Fragment extends DataBindingFragment<Fra
         return false;
     }
 
-    @SuppressWarnings("ConstantConditions")
-    private void cancel() {
-        getInterFragmentStore().<Runnable>remove(InterFragmentStore.MO_ACTION_CANCEL).run();
-        getInterFragmentStore().<Runnable>remove(R.id.phoneNumberAuthenticationV1Fragment, InterFragmentStore.MO_API_CANCEL).run();
+    private void confirm() {
+        transaction.commit();
     }
 
-    @Override
-    public void onDestroy() {
-        super.onDestroy();
-        getInterFragmentStore().remove(R.id.phoneNumberAuthenticationV1Fragment, InterFragmentStore.MO_ACTION_CANCEL);
+    @SuppressWarnings("ConstantConditions")
+    private void cancel() {
+        transaction.cancel();
+        onCancel.run();
     }
 
     private void schedule() {
         unschedule();
 
-        val status = transaction.getStatus();
+        PhoneNumberProofTransaction.Status status = transaction.getStatus();
         updateTime(status);
 
         switch (status) {
@@ -173,8 +175,8 @@ public class PhoneNumberAuthenticationV1Fragment extends DataBindingFragment<Fra
         timer.schedule(new TimerTask() {
             @Override
             public void run() {
-                val status = transaction.getStatus();
-                val mismatchCount = transaction.getAuthCodeMismatchCount();
+                PhoneNumberProofTransaction.Status status = transaction.getStatus();
+                int mismatchCount = transaction.getAuthCodeMismatchCount();
 
                 requireActivity().runOnUiThread(() -> updateTime(status));
 

@@ -5,7 +5,6 @@ import android.content.Context;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.databinding.ObservableBoolean;
 import androidx.databinding.ObservableField;
 import androidx.lifecycle.ViewModel;
 
@@ -15,8 +14,6 @@ import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.Optional;
-
-import lombok.val;
 
 public class UserInfoFormFragmentViewModel extends ViewModel  {
     public final ObservableField<String> userName = new ObservableField<>();
@@ -55,7 +52,7 @@ public class UserInfoFormFragmentViewModel extends ViewModel  {
     @Nullable
     public String getRefinedPhoneNumber() {
         // 숫자 이외의 문제 제거
-        val str = Optional.ofNullable(phoneNumber.get())
+        String str = Optional.ofNullable(phoneNumber.get())
             .map(s -> s.replaceAll("\\D", ""))
             .filter(s -> s.length() > 0)
             .orElse( null);

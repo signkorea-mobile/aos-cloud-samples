@@ -22,12 +22,10 @@ import com.yettiesoft.cloud.PhoneNumberProofTransaction;
 import java.util.Timer;
 import java.util.TimerTask;
 
-import lombok.val;
-
 public class PhoneNumberAuthenticationV2Fragment extends DataBindingFragment<FragmentPhoneNumberAuthenticationV2Binding> {
     private PhoneNumberProofTransaction transaction;
+    private Runnable onCancel;
     private Timer timer = null;
-    private Runnable confirmAction = null;
 
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
@@ -46,19 +44,15 @@ public class PhoneNumberAuthenticationV2Fragment extends DataBindingFragment<Fra
 
         transaction = getInterFragmentStore().remove(
             R.id.phoneNumberAuthenticationV2Fragment,
-            InterFragmentStore.MO_API_TRANSACTION);
+            InterFragmentStore.MO_API_EXECUTOR);
 
-        confirmAction = getInterFragmentStore().remove(
-            R.id.phoneNumberAuthenticationV2Fragment,
-            InterFragmentStore.MO_ACTION_CONFIRM);
+        onCancel = getInterFragmentStore().remove(
+                R.id.phoneNumberAuthenticationV2Fragment,
+                InterFragmentStore.MO_API_CANCEL);
 
         // 확인
         getBinding().confirmButton.setEnabled(false);
         getBinding().confirmButton.setBackgroundColor(0xff505050);
-        getBinding().confirmButton.setOnClickListener(button -> {
-            //noinspection ConstantConditions
-            confirmAction.run();
-        });
 
         // 취소
         getBinding().cancelButton.setOnClickListener(button -> cancel());
@@ -82,21 +76,25 @@ public class PhoneNumberAuthenticationV2Fragment extends DataBindingFragment<Fra
         unschedule();
     }
 
-    @SuppressWarnings("ConstantConditions")
-    private void cancel() {
-        getInterFragmentStore().<Runnable>remove(InterFragmentStore.MO_ACTION_CANCEL).run();
-        getInterFragmentStore().<Runnable>remove(R.id.phoneNumberAuthenticationV2Fragment, InterFragmentStore.MO_API_CANCEL).run();
-    }
-
     @Override
     public void onDestroy() {
         super.onDestroy();
-        getInterFragmentStore().remove(R.id.phoneNumberAuthenticationV2Fragment, InterFragmentStore.MO_ACTION_CANCEL);
+        getInterFragmentStore().remove(R.id.phoneNumberAuthenticationV2Fragment, InterFragmentStore.MO_API_CANCEL);
+    }
+
+    private void confirm() {
+        transaction.commit();
+    }
+
+    @SuppressWarnings("ConstantConditions")
+    private void cancel() {
+        transaction.cancel();
+        onCancel.run();
     }
 
     private void sendMessage() {
-        val smsBody = String.format("클라우드 인증: 인증문자 보내기\n[%s]\n이전단계로 돌아가 주세요", transaction.getAuthCode());
-        val intent = new Intent(Intent.ACTION_SENDTO)
+        String smsBody = String.format("클라우드 인증: 인증문자 보내기\n[%s]\n이전단계로 돌아가 주세요", transaction.getAuthCode());
+        Intent intent = new Intent(Intent.ACTION_SENDTO)
             .setData(Uri.fromParts("smsto", transaction.getFeedbackNumber(), null))
             .putExtra("sms_body", smsBody);
 
@@ -110,7 +108,7 @@ public class PhoneNumberAuthenticationV2Fragment extends DataBindingFragment<Fra
             return;
         }
 
-        val toastMessage = String.format("SMS에 생성된 인증번호 전송 후 \"%s\"(으)로 돌아가 주세요.", getString(R.string.app_name));
+        String toastMessage = String.format("SMS에 생성된 인증번호 전송 후 \"%s\"(으)로 돌아가 주세요.", getString(R.string.app_name));
         Toast.makeText(requireContext().getApplicationContext(), toastMessage, Toast.LENGTH_LONG).show();
 
         schedule();
@@ -121,14 +119,14 @@ public class PhoneNumberAuthenticationV2Fragment extends DataBindingFragment<Fra
         switch (status) {
             case AuthCodeDoesNotMatch:
             case InProgress: {
-                val totSec = Math.max(transaction.getTimeout().getTime() - System.currentTimeMillis(), 0) / 1000;
-                val str = String.format("%02d:%02d", totSec / 60, totSec % 60);
+                long totSec = Math.max(transaction.getTimeout().getTime() - System.currentTimeMillis(), 0) / 1000;
+                String str = String.format("%02d:%02d", totSec / 60, totSec % 60);
                 getBinding().confirmButton.setText(str);
             } break;
 
             case Complete: {
                 // MO인증이 완료된 경우 후속 진행 처리
-                confirmAction.run();
+                confirm();
             } break;
 
             case Canceled:
@@ -148,7 +146,7 @@ public class PhoneNumberAuthenticationV2Fragment extends DataBindingFragment<Fra
             case AuthCodeDoesNotMatch: {
                 requireActivity().runOnUiThread(() -> {
                     @SuppressLint("DefaultLocale")
-                    val message = String.format(
+                    String message = String.format(
                             "인증코드가 일치하지 않습니다. 정확한 인증코드를 전송해 주시기 바랍니다.\n[%d/5]",
                             mismatchCount);
 
@@ -191,7 +189,7 @@ public class PhoneNumberAuthenticationV2Fragment extends DataBindingFragment<Fra
     private void schedule() {
         unschedule();
 
-        val status = transaction.getStatus();
+        PhoneNumberProofTransaction.Status status = transaction.getStatus();
         updateTime(status);
 
         switch (status) {
@@ -206,8 +204,8 @@ public class PhoneNumberAuthenticationV2Fragment extends DataBindingFragment<Fra
         timer.schedule(new TimerTask() {
             @Override
             public void run() {
-                val status = transaction.getStatus();
-                val mismatchCount = transaction.getAuthCodeMismatchCount();
+                PhoneNumberProofTransaction.Status status = transaction.getStatus();
+                int mismatchCount = transaction.getAuthCodeMismatchCount();
 
                 requireActivity().runOnUiThread(() -> updateTime(status));
 
