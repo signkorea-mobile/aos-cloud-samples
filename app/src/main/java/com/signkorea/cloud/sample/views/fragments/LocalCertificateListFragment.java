@@ -98,15 +98,6 @@ public class LocalCertificateListFragment
         operation = LocalCertificateListFragmentArgs.fromBundle(getArguments()).getOperation();
 
         getBinding().recyclerView.setAdapter(adapter);
-        
-        requireActivity().getOnBackPressedDispatcher().addCallback(getViewLifecycleOwner(), new OnBackPressedCallback(true) {
-            @Override
-            public void handleOnBackPressed() {
-                if(operation == CertificateOperation.register) {
-
-                }
-            }
-        });
     }
 
     @Override

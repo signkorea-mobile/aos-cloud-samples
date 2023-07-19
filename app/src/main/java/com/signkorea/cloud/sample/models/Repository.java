@@ -15,7 +15,6 @@ public abstract class Repository {
     protected Context context;
     protected KSCertificateManagerExt certMgr;
     protected List<KSCertificateExt> certificates;
-    protected AtomicBoolean isBusy = new AtomicBoolean(false);
 
     public void init(Context context,
                      Client.Delegate clientDelegate,
@@ -36,6 +35,5 @@ public abstract class Repository {
     // region Getters
     public List<KSCertificateExt> getCertificates() { return certificates; }
     public KSCertificateManagerExt getCertMgr() { return certMgr; }
-    public boolean isBusy() { return isBusy.get(); }
     // endregion
 }

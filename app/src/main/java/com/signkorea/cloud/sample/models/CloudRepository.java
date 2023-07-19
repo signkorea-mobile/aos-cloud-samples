@@ -21,9 +21,7 @@ public class CloudRepository extends Repository {
 
     @Override
     public void loadCertificates(Runnable onComplete, Consumer<Exception> onError) {
-        isBusy.set(true);
         certMgr.getUserCertificateListCloud(certs -> {
-            isBusy.set(false);
             this.certificates = certs;
 
             // 이전에 사용했던 인증서 SubjectDn가 로딩한 인증서 목록에서 존재하는지 확인
@@ -39,7 +37,6 @@ public class CloudRepository extends Repository {
 
             onComplete.run();
         }, e -> {
-            isBusy.set(false);
             onError.accept(e);
         });
     }
@@ -55,15 +52,12 @@ public class CloudRepository extends Repository {
             @NonNull ProtectedData secret,
             @NonNull BiConsumer<ExportedCertificate, Boolean> completion,
             @NonNull Consumer<Exception> onError) {
-        isBusy.set(true);
         certMgr.exportCertificate(id,
                 pin,
                 secret,
                 (certificates, fromCache) -> {
-                    isBusy.set(false);
                     completion.accept(certificates[0], fromCache);
                 }, e -> {
-                    isBusy.set(false);
                     onError.accept(e);
                 });
     }
@@ -74,38 +68,22 @@ public class CloudRepository extends Repository {
             @NonNull ProtectedData newPin,
             @NonNull Runnable completion,
             @NonNull Consumer<Exception> onError) {
-        isBusy.set(true);
-        certMgr.changePwd(id, oldPin, newPin, () -> {
-            isBusy.set(false);
-            completion.run();
-        }, e -> {
-            isBusy.set(false);
-            onError.accept(e);
-        });
+        certMgr.changePwd(id, oldPin, newPin, completion::run, onError::accept);
     }
 
     public void deleteCertificate(
             String id,
             @NonNull Runnable completion,
             @NonNull Consumer<Exception> onError) {
-        isBusy.set(true);
         certMgr.deleteCert(id,
                 () -> {
-                    isBusy.set(false);
                     certificates.removeIf(cert -> Objects.equals(cert.getId(), id));
                     completion.run();
-                }, e -> {
-                    isBusy.set(false);
-                    onError.accept(e);
-                });
+                }, e -> onError.accept(e));
     }
 
     public void issueCertificate(String refNum, String authCode, Consumer<Hashtable<String, Object>> completion) {
-        isBusy.set(true);
-        certMgr.issue(refNum, authCode, 256, true, c -> {
-            isBusy.set(false);
-            completion.accept(c);
-        });
+        certMgr.issue(refNum, authCode, 256, true, completion);
     }
 
     public boolean saveCertificateLocal(ProtectedData pwd) {
@@ -113,28 +91,17 @@ public class CloudRepository extends Repository {
     }
 
     public void saveCertificateCloud(ProtectedData pin, Runnable completion, Consumer<Exception> onError) {
-        isBusy.set(true);
-        certMgr.saveCloud(pin, () -> {
-            isBusy.set(false);
-            completion.run();
-        }, e -> {
-            isBusy.set(false);
-            onError.accept(e);
-        });
+        certMgr.saveCloud(pin, completion, onError);
     }
 
     public void updateCertificateCloud(KSCertificateExt cert,
                                        @NonNull ProtectedData pin,
                                        @NonNull Consumer<Hashtable<String, Object>> completion) {
-        isBusy.set(true);
         certMgr.updateCloud(cert.getId(),
                 pin,
                 256,
                 true,       // 테스트서버: true, 가동서버: false
-                c -> {
-                    isBusy.set(false);
-                    completion.accept(c);
-                });
+                completion);
     }
 
     public void unlockCertificate(
@@ -142,16 +109,9 @@ public class CloudRepository extends Repository {
             @NonNull Runnable completion,
             @NonNull Consumer<Exception> onError)
     {
-        isBusy.set(true);
         certMgr.unlockCertificate(cert.getId(),
-                () -> {
-                    isBusy.set(false);
-                    loadCertificates(completion, onError);
-                },
-                e -> {
-                    isBusy.set(false);
-                    onError.accept(e);
-                });
+                () -> loadCertificates(completion, onError),
+                onError);
     }
 
     public List<KSCertificateExt> getLockedCertificates() {
@@ -159,59 +119,29 @@ public class CloudRepository extends Repository {
     }
 
     public void deleteAccount(Runnable onComplete, Consumer<Exception> onError) {
-        isBusy.set(true);
-        certMgr.client.deleteAccount(() -> {
-            isBusy.set(false);
-            onComplete.run();
-        }, e -> {
-            isBusy.set(false);
-            onError.accept(e);
-        });
+        certMgr.client.deleteAccount(onComplete, onError);
     }
 
     public void disconnect(Runnable onComplete, Consumer<Exception> onError) {
-        isBusy.set(true);
         certMgr.client.checkConnect(connected -> {
                 if(connected) {
                     certMgr.client.disconnect(() -> {
-                        isBusy.set(false);
                         certificates = null;
                         onComplete.run();
-                    }, e -> {
-                        isBusy.set(false);
-                        onError.accept(e);
-                    });
+                    }, onError);
                 }
                 else {
-                    isBusy.set(false);
                     onError.accept(new RuntimeException("클라우드에 연결되어 있지 않습니다."));
                 }
-            }, e -> {
-                isBusy.set(false);
-                onError.accept(e);
-        });
+            }, onError);
     }
 
     public void getAutoConnectDevices(Consumer<List<AutoConnectDevice>> onComplete, Consumer<Exception> onError) {
-        isBusy.set(true);
-        certMgr.client.getAutoConnectInfo(devices -> {
-            isBusy.set(false);
-            onComplete.accept(Arrays.asList(devices));
-        }, e -> {
-            isBusy.set(false);
-            onError.accept(e);
-        });
+        certMgr.client.getAutoConnectInfo(devices -> onComplete.accept(Arrays.asList(devices)), onError);
     }
 
     public void deleteAutoConnectDevice(String deviceId, Consumer<Boolean> completion, Consumer<Exception> onError) {
-        isBusy.set(true);
-        certMgr.client.deleteAutoConnect(deviceId, b -> {
-            isBusy.set(false);
-            completion.accept(b);
-        }, e -> {
-            isBusy.set(false);
-            onError.accept(e);
-        });
+        certMgr.client.deleteAutoConnect(deviceId, completion, onError);
     }
 
     // region Getters

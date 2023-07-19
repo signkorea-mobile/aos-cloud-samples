@@ -12,15 +12,10 @@ import java.util.function.Consumer;
 public class LocalRepository extends Repository {
     @Override
     public void loadCertificates(Runnable onComplete, Consumer<Exception> onError) {
-        isBusy.set(true);
         certMgr.getUserCertificateListLocal(certs -> {
-            isBusy.set(false);
             this.certificates = certs;
             onComplete.run();
-        }, e -> {
-            isBusy.set(false);
-            onError.accept(e);
-        });
+        }, onError);
     }
 
     public void importCertificate(
@@ -32,29 +27,22 @@ public class LocalRepository extends Repository {
             @NonNull ProtectedData pin,
             @NonNull Runnable completion,
             @NonNull Consumer<Exception> onError) {
-        isBusy.set(true);
-        certMgr.importCertificate(certificate, key, kmCertificate, kmKey, secret, pin, () -> {
-            isBusy.set(false);
-            completion.run();
-        }, e -> {
-            isBusy.set(false);
-            onError.accept(e);
-        });
+        certMgr.importCertificate(
+                certificate, key,
+                kmCertificate, kmKey,
+                secret, pin,
+                completion, onError);
     }
 
     public void updateCertificateLocal(KSCertificateExt cert,
                                        @NonNull ProtectedData pwd,
                                        @NonNull Consumer<Hashtable<String, Object>> completion) {
-        isBusy.set(true);
         certMgr.updateLocal(cert.getCertificate(),
                 cert.getKey(),
                 pwd,
                 256,
                 true,       // 테스트서버: true, 가동서버: false
-                c -> {
-                    isBusy.set(false);
-                    completion.accept(c);
-                });
+                completion);
     }
 
     public static LocalRepository getInstance() {
